@@ -6,7 +6,7 @@ from time import time
 from time import sleep
 from math import ceil
 #from urllib  import urlretrieve
-#from urllib import urlopen
+import urllib.request
 import json
 #time.time() gets time since the epoch
 #time.sleep() will pause for 'x' seconds
@@ -14,7 +14,6 @@ import json
 
 oneWeekInSeconds = 604800 #change if you want to change run frequency
 lastRunTime=0
-
 
 #checks if config.txt exists. Creates it if it doesn't exist.
 try:
@@ -82,10 +81,15 @@ def askUrl():
         print ('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
         askUrl()
     write_time_to_config_file()
-"""
-    #the following code is from reddit user u/Jonno_FTW and edited to suit my needs:
+    print (finalUrl)
+
+    response = urllib.request.urlopen(finalUrl)
+    content = response.read()
+    data = json.loads(content.decode("utf8"))
+    print(data)
+    #the following code is from reddit user u/Jonno_FTW and edited to suit my needs: (doesn't work in python 3.3)
     #http://www.reddit.com/r/wallpapers/comments/138qi2/i_have_a_script_that_randomizes_wallpapers_from/c71tqti
-    page = json.load(urlopen(finalUrl))
+"""
     while 1:
         img = choice(page['data']['children'])
         if img['is_self'] or img['url'].lower() not in ['png','jpg']:
@@ -97,4 +101,5 @@ def askUrl():
             break
 """
 
-SinceLastRun() #runs the script
+#SinceLastRun() #runs the script
+askUrl()
