@@ -8,6 +8,7 @@ from math import ceil
 #from urllib  import urlretrieve
 import urllib.request
 import json
+from random import choice
 #time.time() gets time since the epoch
 #time.sleep() will pause for 'x' seconds
 #math.ceil() rounds out time() float to an int
@@ -81,12 +82,47 @@ def askUrl():
         print ('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
         askUrl()
     write_time_to_config_file()
-    print (finalUrl)
+    print (finalUrl) #debugging
 
     response = urllib.request.urlopen(finalUrl)
     content = response.read()
     data = json.loads(content.decode("utf8"))
-    print(data)
+#    print(data)  #debugging
+
+    i=0
+    while i < 25:
+        print (i)  #debugging
+        img = data['data']['children'][i]['data']
+#        print (img)   #debugging
+        print ('')
+        sleep(1)
+        i += 1
+        fileType = img['url'].lower()[-3:]
+        domain = img['url'].lower().split("/")[-2]
+        allowedType = fileType == 'png' or fileType == 'jpg'
+        print (img['is_self'])
+        print (img['url'])
+        print ('Filetype = ' + fileType)
+        print (allowedType)
+        print (img['url'].split("/")[-1])
+        print (domain)
+        sleep(1)
+        if img['is_self'] == True:
+            print ('Image is a self-post. Skipped')
+        elif allowedType == False:
+            print ('Image isn\'t a png or jpg. Skipped')
+        elif domain != 'i.imgur.com':
+            print ('Image isn\'t hosted on imgur.com, skipping to avoid 404 errors.')
+        else:
+            p = img['url'].split("/")[-1]
+            urllib.request.urlretrieve(img['url'],p)
+            print ("Saved new image as " + p)
+        
+        
+        
+
+
+
     #the following code is from reddit user u/Jonno_FTW and edited to suit my needs: (doesn't work in python 3.3)
     #http://www.reddit.com/r/wallpapers/comments/138qi2/i_have_a_script_that_randomizes_wallpapers_from/c71tqti
 """
@@ -102,4 +138,5 @@ def askUrl():
 """
 
 #SinceLastRun() #runs the script
+
 askUrl()
