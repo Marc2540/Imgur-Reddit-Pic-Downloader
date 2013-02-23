@@ -64,26 +64,20 @@ def SinceLastRun():
     if skipFrequencyCheck == True:
         askUrl()
     else:
-        try:
-            if time() >= (int(lastRunTime[12:]) + frequencyCheck):
+        if time() >= (int(lastRunTime[12:]) + frequencyCheck):
+            askUrl()
+        else:
+            print ('According to config.txt, it hasn\'t been 1 week since last run.')
+            goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
+            if goAheadAnyway.upper() == 'Y':
                 askUrl()
+            elif goAheadAnyway.upper() == 'N':
+                print ('Aborted.')
+                sleep(2)
+                exit()
             else:
-                print ('According to config.txt, it hasn\'t been 1 week since last run.')
-                goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
-                if goAheadAnyway.upper() == 'Y':
-                    askUrl()
-                elif goAheadAnyway.upper() == 'N':
-                    print ('Aborted.')
-                    sleep(2)
-                    exit()
-                else:
-                    print ('I didn\'t understand you, try again.')
-                    SinceLastRun()
-        except:
-            print ('If you aborted the program, ignore this.')
-            print ('If you didn\'t, then there is invalid info in the config file. Please delete it.')
-            sleep(10)
-            exit()
+                print ('I didn\'t understand you, try again.')
+                SinceLastRun()
 
 def write_time_to_config_file():
     if skipWriteToConfig != True:
