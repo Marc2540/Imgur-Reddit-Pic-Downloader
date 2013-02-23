@@ -23,7 +23,7 @@ skipFrequencyCheck = False #default = False
 skipWriteToConfig = False #default = False
 runWithoutConfigFile = False #Script wont make, read, nor write to config.txt   default = False
 configFileName = 'config.txt' #default = 'config.txt'
-numberOfLoops = 30 #change number of cycles through the .json file. default = 25
+numberOfLoops = 25 #change number of cycles through the .json file. default = 25
 
 
 lastRunTime = 0
