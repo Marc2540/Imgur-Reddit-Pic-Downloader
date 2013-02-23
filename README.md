@@ -4,9 +4,11 @@ Imgur-Reddit-Pic-Downloader
 This program takes a reddit.com .json url and sorts through it to download imgur-hosted .png and .jpg pictures. 
 
 
-TODO list:
+Written in python 3.3
 
-Place pictures in seperate folder.
-  Setting for deleting old pictures in folder.
-Add support for more domains.
-Add support for more filetypes.
+<b>To do list:</b>  
+Place pictures in seperate folder.  
+   Setting for deleting old pictures in folder.  
+Add support for more domains.  
+Add support for more filetypes.  
+Replace urllib.request.urlretrieve with something that's not a legacy interface...
