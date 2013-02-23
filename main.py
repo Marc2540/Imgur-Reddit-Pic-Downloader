@@ -22,7 +22,7 @@ fixedUrl = 'empty' #will use this url and wont ask for subreddit. NO ERROR CHECK
 skipFrequencyCheck = False #default = False
 skipWriteToConfig = False #default = False
 runWithoutConfigFile = False #Script wont make, read, nor write to config.txt   default = False
-#configFileName= 'config.txt' #default = 'config.txt'
+configFileName= 'config.txt' #default = 'config.txt'
 
 
 
@@ -34,17 +34,20 @@ if runWithoutConfigFile == True:
     skipFrequencyCheck = True
     skipWriteToConfig = True
 else:
+    if len(configFileName) < 2 or len(configFileName) > 100:
+        configFileName = 'config.txt'
+        print ('Invalid config file name, reverted to "config.txt".')
     #checks if config.txt exists. Creates it if it doesn't exist.
     try:
-        with open('config.txt') as f: pass
+        with open(configFileName) as f: pass
     except:
         print ('Config file doesn\'t exist. Creating it.')
-        f = open('config.txt','w')
+        f = open(configFileName,'w')
         f.write('lastRunTime=0')
         f.close()
     del f
 
-    configFile_Read = open("config.txt", "r") #defines the config file, and opens in 'read' mode.
+    configFile_Read = open(configFileName, "r") #defines the config file, and opens in 'read' mode.
     for lastRunTime in configFile_Read:
         if "lastRunTime=" in lastRunTime:
             if debug == True: #debug check
@@ -67,7 +70,6 @@ def SinceLastRun():
                 askUrl()
             else:
                 print ('According to config.txt, it hasn\'t been 1 week since last run.')
-                sleep(2)
                 goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
                 if goAheadAnyway.upper() == 'Y':
                     askUrl()
@@ -79,14 +81,15 @@ def SinceLastRun():
                     print ('I didn\'t understand you, try again.')
                     SinceLastRun()
         except:
-            print ('Invalid info in config file, please delete it.')
+            print ('If you aborted the program, ignore this.')
+            print ('If you didn\'t, then there is invalid info in the config file. Please delete it.')
             sleep(10)
             exit()
 
 def write_time_to_config_file():
     if skipWriteToConfig != True:
         """Writes the current time to the config file and tells the user that the program is done"""
-        configFile_Write = open("config.txt", "w") #opens it in 'write' mode
+        configFile_Write = open(configFileName, "w")
         configFile_Write.write("lastRunTime=" + str(ceil(time())))
         configFile_Write.close()
         sleep(0.5)
@@ -173,7 +176,7 @@ def askUrl():
         else:
             p = img['url'].split("/")[-1]
             urllib.request.urlretrieve(img['url'],p)
-            print ("Saved new image as " + p)       
+            print ("Saved new image as " + p)
 
 SinceLastRun() #actually runs the script.
 
