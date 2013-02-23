@@ -8,9 +8,9 @@ from math import ceil
 import urllib.request
 import json
 """
-time.time() gets time since the epoch
-time.sleep() will pause for 'x' seconds
-math.ceil() rounds out time() float to an int
+time.time() gets time since the epoch.
+time.sleep() will pause for 'x' seconds.
+math.ceil() rounds out time() float to an int.
 urllib.request lets me pull things from websites.
 the json library lets me decode .json.
 """
@@ -24,9 +24,13 @@ skipWriteToConfig = False #default = False
 runWithoutConfigFile = False #Script wont make, read, nor write to config.txt   default = False
 configFileName = 'config.txt' #default = 'config.txt'
 numberOfLoops = 25 #change number of cycles through the .json file. default = 25
+verbose = True #want it to be silent? default = True
 
-
+#pre-defining
 lastRunTime = 0
+subredditUrl = 'empty'
+finalUrl = 'empty'
+debugModifier = 'none'
 
 if runWithoutConfigFile == True:
     skipFrequencyCheck = True
@@ -34,18 +38,21 @@ if runWithoutConfigFile == True:
 else:
     if len(configFileName) < 2 or len(configFileName) > 100:
         configFileName = 'config.txt'
-        print ('Invalid config file name, reverted to "config.txt".')
+        if verbose == True:
+            print ('Invalid config file name, reverted to "config.txt".')
     #checks if config.txt exists. Creates it if it doesn't exist.
     try:
         with open(configFileName) as f:
             pass
     except:
-        print ('Config file doesn\'t exist. Creating it.')
+        if verbose == True:
+            print ('Config file doesn\'t exist. Creating it.')
         f = open(configFileName,'w')
         f.write('lastRunTime=0')
         f.close()
     del f
-    
+
+    #reads lastRunTime from config file.
     configFile_Read = open(configFileName, "r")
     for lastRunTime in configFile_Read:
         if "lastRunTime=" in lastRunTime:
@@ -55,29 +62,29 @@ else:
                 sleep(5)
     configFile_Read.close()
 
-def SinceLastRun():
+
+def sinceLastRun():
     """
     Finds out how much time has passed since last run and,
     if one week has passed, runs the program.
     If one week hasn't passed, it asks if you want to continue anyway.
     """
-    if skipFrequencyCheck == True:
+    if time() >= (int(lastRunTime[12:]) + frequencyCheck):
+        askUrl()
+    elif verbose == 'no':
         askUrl()
     else:
-        if time() >= (int(lastRunTime[12:]) + frequencyCheck):
+        print ('According to config.txt, it hasn\'t been 1 week since last run.')
+        goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
+        if goAheadAnyway.upper() == 'Y':
             askUrl()
+        elif goAheadAnyway.upper() == 'N':
+            print ('Aborted.')
+            sleep(2)
+            exit()
         else:
-            print ('According to config.txt, it hasn\'t been 1 week since last run.')
-            goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
-            if goAheadAnyway.upper() == 'Y':
-                askUrl()
-            elif goAheadAnyway.upper() == 'N':
-                print ('Aborted.')
-                sleep(2)
-                exit()
-            else:
-                print ('I didn\'t understand you, try again.')
-                SinceLastRun()
+            print ('I didn\'t understand you, try again.')
+            sinceLastRun()
 
 def write_time_to_config_file():
     if skipWriteToConfig != True:
@@ -85,7 +92,6 @@ def write_time_to_config_file():
         configFile_Write = open(configFileName, "w")
         configFile_Write.write("lastRunTime=" + str(ceil(time())))
         configFile_Write.close()
-        sleep(0.5)
         if debug == True: #debug check
             print ('')
             print ('Wrote lastRunTime=' + str(ceil(time())) + ' to config file.')
@@ -94,42 +100,125 @@ def write_time_to_config_file():
     
 def askUrl():
     write_time_to_config_file()
+    global subredditUrl
     """
     Asks which subreddit you want to pull from and fixes the formatting of the http request.
-    Then it get a .json page from the url and downloads valid images.
+    Then it runs modifyUrl()
     """
     if fixedUrl != 'empty':
         finalUrl = fixedUrl
+        fetchImg()
     else:
         askForSubreddit = input('Which subreddit do you want to pull from? (e.g. r/pics) ')
         if str(askForSubreddit) == '':
-            print ('Please try again.')
+            if verbose == True:
+                print ('Please try again.')
             askUrl()
         elif askForSubreddit.startswith('/') and askForSubreddit.endswith('/'):
-            finalUrl = 'http://reddit.com' + askForSubreddit + '.json'
+            subredditUrl = 'http://reddit.com' + askForSubreddit + '.json'
+            modifyUrl()
         elif askForSubreddit.startswith('/'):
-            finalUrl = 'http://reddit.com' + askForSubreddit + '/.json'
-        elif askForSubreddit.startswith('r') and askForSubreddit.endswith('/'):
-            finalUrl = 'http://reddit.com/' + askForSubreddit + '.json'
-        elif askForSubreddit.startswith('r') and not askForSubreddit.endswith('/'):
-            finalUrl = 'http://reddit.com/' + askForSubreddit + '/.json'
+            subredditUrl = 'http://reddit.com' + askForSubreddit + '/.json'
+            modifyUrl()
+        elif askForSubreddit.startswith('r/') and askForSubreddit.endswith('/'):
+            subredditUrl = 'http://reddit.com/' + askForSubreddit + '.json'
+            modifyUrl()
+        elif askForSubreddit.startswith('r/') and not askForSubreddit.endswith('/'):
+            subredditUrl = 'http://reddit.com/' + askForSubreddit + '/.json'
+            modifyUrl()
         else:
-            print ('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
+            if verbose == True:
+                print ('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
             askUrl()
-    
-    if debug == True: #debug check
-        print ('')
-        print ('The final url to get .json from is ' + finalUrl)
-        sleep(5)
 
+
+def modifyUrl():
+    global finalUrl
+    """
+    Takes the valid subreddit from askUrl() and modifies it.
+    Runs fetchImg() afterwards.
+    """
+    askForModifiers = input ('Do you want to pull from the frontpage, or modify the pull-request? (frontpage/modify) ')
+    if str(askForModifiers) == 'frontpage':
+        finalUrl = subredditUrl
+        debugModifier = 'frontpage'
+        fetchImg()
+    elif str(askForModifiers) != 'modify':
+        if verbose == True:
+            print ('Please try again.')
+        askUrl()
+    else:
+        chosenModifier = input ('What kind of posts do you want? (new/top/rising/controversial) ')
+        if chosenModifier == 'rising':
+            finalUrl = subredditUrl[:-5] + 'rising/.json'
+            debugModifier = 'rising'
+            fetchImg()
+        elif chosenModifier == 'con' or chosenModifier == 'controversial':
+            finalUrl = subredditUrl[:-5] + 'controversial/.json'
+            debugModifier = 'controversial'
+            fetchImg()
+        elif chosenModifier == 'new':
+            finalUrl = subredditUrl[:-5] + 'new/.json'
+            debugModifier = 'new'
+            fetchImg()
+        elif chosenModifier == 'top':
+            modifierType = input ('What kind of "top" modifier do you want to use? (hour/day/week/month/year/alltime) ')
+            if modifierType == 'hour':
+                finalUrl = subredditUrl[:-5] + 'top/.json?sort=top&t=hour'
+                debugModifier = 'top - hour'
+                fetchImg()
+            if modifierType == 'day':
+                finalUrl = subredditUrl[:-5] + 'top/.json?sort=top&t=day'
+                debugModifier = 'top - day'
+                fetchImg()
+            if modifierType == 'week':
+                finalUrl = subredditUrl[:-5] + 'top/.json?sort=top&t=week'
+                debugModifier = 'top - week'
+                fetchImg()
+            if modifierType == 'month':
+                finalUrl = subredditUrl[:-5] + 'top/.json?sort=top&t=month'
+                debugModifier = 'top - month'
+                fetchImg()
+            if modifierType == 'alltime':
+                finalUrl = subredditUrl[:-5] + 'top/.json?sort=top&t=all'
+                debugModifier = 'top - alltime'
+                fetchImg()
+            else:
+                print ('Please try again.')
+                modifyUrl()
+        else:
+            print ('Please try again.')
+            modifyUrl()
+
+
+def debugPreFetch():
+    """
+    Debugging values before fetching subreddit data.
+    Placed here because I call fetchImg() inside if statements and
+    dont want to repeat the 'if debug == true' statement 1000 times.
+    """
+    #debugging for askUrl()
+    print ('')
+    print ('The subreddit url to get .json from is ' + subredditUrl)
+    #debugging for modifyUrl()
+    print ('')
+    print ('The chosen modifier is ' + str(debugModifier))
+    print ('The final url to get .json from is ' + str(finalUrl))
+    sleep(5)
+
+
+
+def fetchImg():
+    if debug == True:
+        debugPreFetch()
     response = urllib.request.urlopen(finalUrl)
     content = response.read()
     data = json.loads(content.decode("utf8"))
     
     if debug == True: #debug check
         print ('')
-        print ('The data from ' + finalUrl + 'is returning this data:')
-        sleep(2)
+        print ('The data from ' + finalUrl + ' is returning this data:')
+        sleep(1)
         print ('')
         print (data)
         sleep(5)
@@ -141,10 +230,9 @@ def askUrl():
         fileType = img['url'].lower()[-3:]
         domain = img['url'].lower().split("/")[2]
         allowedType = fileType == 'png' or fileType == 'jpg'
-        
         if debug == True: #debug check
             print ('')
-            print ('This loop runs if i < ' + numberOfLoops + '. I is currently ' + str(i))
+            print ('This loop runs if i < ' + str(numberOfLoops) + '. I is currently ' + str(i))
             sleep(1)
             print ('')
             print ('The current value of "img" is:')
@@ -161,17 +249,24 @@ def askUrl():
             sleep(10)
             
         if img['is_self'] == True:
-            print ('Image is a self-post. Skipped')
+            if verbose == True:
+                print ('Image is a self-post. Skipped')
         elif allowedType == False:
-            print ('Image isn\'t a png or jpg. Skipped')
+            if verbose == True:
+                print ('Image isn\'t a png or jpg. Skipped')
         elif domain != 'i.imgur.com':
-            print ('Image isn\'t hosted on imgur.com, skipping to avoid 404 errors.')
+            if verbose == True:
+                print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         else:
             p = img['url'].split("/")[-1]
             urllib.request.urlretrieve(img['url'],p)
-            print ('Saved new image as ' + p)
+            if verbose == True:
+                print ('Saved new image as ' + p)
 
-SinceLastRun() #actually runs the script.
+#actually runs the main part of the script.
+if skipFrequencyCheck == True:
+    askUrl()
+else: sinceLastRun()
 
 
 
