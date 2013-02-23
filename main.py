@@ -74,7 +74,7 @@ def sinceLastRun():
     elif verbose == 'no':
         askUrl()
     else:
-        print ('According to config.txt, it hasn\'t been 1 week since last run.')
+        print ('According to config.txt, it hasn\'t been ' + str(frequencyCheck) ' seconds since last run.')
         goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
         if goAheadAnyway.upper() == 'Y':
             askUrl()
