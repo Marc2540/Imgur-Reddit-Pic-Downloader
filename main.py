@@ -22,8 +22,8 @@ fixedUrl = 'empty' #will use this url and wont ask for subreddit. NO ERROR CHECK
 skipFrequencyCheck = False #default = False
 skipWriteToConfig = False #default = False
 runWithoutConfigFile = False #Script wont make, read, nor write to config.txt   default = False
-configFileName= 'config.txt' #default = 'config.txt'
-
+configFileName = 'config.txt' #default = 'config.txt'
+numberOfLoops = 25 #change number of cycles through the .json file. default = 25
 
 
 lastRunTime = 0
@@ -135,7 +135,7 @@ def askUrl():
         sleep(5)
     
     i=0
-    while i < 25:
+    while i < numberOfLoops:
         img = data['data']['children'][i]['data']
         i += 1
         fileType = img['url'].lower()[-3:]
@@ -144,7 +144,7 @@ def askUrl():
         
         if debug == True: #debug check
             print ('')
-            print ('This loop runs if i < 25. I is currently ' + str(i))
+            print ('This loop runs if i < ' + numberOfLoops + ". I is currently ' + str(i))
             sleep(1)
             print ('')
             print ('The current value of "img" is:')
