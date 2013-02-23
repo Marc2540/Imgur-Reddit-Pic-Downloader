@@ -7,11 +7,13 @@ from time import sleep
 from math import ceil
 import urllib.request
 import json
-#time.time() gets time since the epoch
-#time.sleep() will pause for 'x' seconds
-#math.ceil() rounds out time() float to an int
-#urllib.request lets me pull things from websites.
-#the json library lets me decode .json.
+"""
+time.time() gets time since the epoch
+time.sleep() will pause for 'x' seconds
+math.ceil() rounds out time() float to an int
+urllib.request lets me pull things from websites.
+the json library lets me decode .json.
+"""
 
 #settings
 debug = False
@@ -20,10 +22,13 @@ fixedUrl = 'empty' #will use this url and wont ask for subreddit. NO ERROR CHECK
 skipFrequencyCheck = False #default = False
 skipWriteToConfig = False #default = False
 runWithoutConfigFile = False #Script wont make, read, nor write to config.txt   default = False
+#configFileName= 'config.txt' #default = 'config.txt'
 
 
 
 lastRunTime = 0
+
+
 
 if runWithoutConfigFile == True:
     skipFrequencyCheck = True
@@ -34,27 +39,19 @@ else:
         with open('config.txt') as f: pass
     except:
         print ('Config file doesn\'t exist. Creating it.')
-        f = open('config.txt','a')
+        f = open('config.txt','w')
+        f.write('lastRunTime=0')
         f.close()
     del f
 
     configFile_Read = open("config.txt", "r") #defines the config file, and opens in 'read' mode.
     for lastRunTime in configFile_Read:
         if "lastRunTime=" in lastRunTime:
-            #checks config file for invalid config file information
-            try:
-                with open('config.txt', 'r') as f:
-                    int(lastRunTime[12:])
-            except:
-                print ('Invalid information in the config file, delete it.')
-                sleep(10)
-                exit()
-            del f
             if debug == True: #debug check
                 print ('')
                 print ('Last runtime was ' + lastRunTime[12:])
                 sleep(5)
-
+    configFile_Read.close()
 
 def SinceLastRun():
     """
@@ -65,28 +62,31 @@ def SinceLastRun():
     if skipFrequencyCheck == True:
         askUrl()
     else:
-        if time() >= (int(lastRunTime[12:]) + frequencyCheck):
-            askUrl()
-        else:
-            print ('According to config.txt, it hasn\'t been 1 week since last run.')
-            sleep(2)
-            goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
-            if goAheadAnyway.upper() == 'Y':
+        try:
+            if time() >= (int(lastRunTime[12:]) + frequencyCheck):
                 askUrl()
-            elif goAheadAnyway.upper() == 'N':
-                print ('Aborted.')
-                sleep(2)
-                exit()
             else:
-                print ('I didn\'t understand you, try again.')
-                SinceLastRun()
+                print ('According to config.txt, it hasn\'t been 1 week since last run.')
+                sleep(2)
+                goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
+                if goAheadAnyway.upper() == 'Y':
+                    askUrl()
+                elif goAheadAnyway.upper() == 'N':
+                    print ('Aborted.')
+                    sleep(2)
+                    exit()
+                else:
+                    print ('I didn\'t understand you, try again.')
+                    SinceLastRun()
+        except:
+            print ('Invalid info in config file, please delete it.')
+            sleep(10)
+            exit()
 
 def write_time_to_config_file():
-    if skipWriteToConfig == True:
-        pass
-    else:
+    if skipWriteToConfig != True:
         """Writes the current time to the config file and tells the user that the program is done"""
-        configFile_Write= open("config.txt", "w") #opens it in 'write' mode
+        configFile_Write = open("config.txt", "w") #opens it in 'write' mode
         configFile_Write.write("lastRunTime=" + str(ceil(time())))
         configFile_Write.close()
         sleep(0.5)
