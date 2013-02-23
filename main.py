@@ -28,8 +28,6 @@ configFileName= 'config.txt' #default = 'config.txt'
 
 lastRunTime = 0
 
-
-
 if runWithoutConfigFile == True:
     skipFrequencyCheck = True
     skipWriteToConfig = True
@@ -39,15 +37,16 @@ else:
         print ('Invalid config file name, reverted to "config.txt".')
     #checks if config.txt exists. Creates it if it doesn't exist.
     try:
-        with open(configFileName) as f: pass
+        with open(configFileName) as f:
+            pass
     except:
         print ('Config file doesn\'t exist. Creating it.')
         f = open(configFileName,'w')
         f.write('lastRunTime=0')
         f.close()
     del f
-
-    configFile_Read = open(configFileName, "r") #defines the config file, and opens in 'read' mode.
+    
+    configFile_Read = open(configFileName, "r")
     for lastRunTime in configFile_Read:
         if "lastRunTime=" in lastRunTime:
             if debug == True: #debug check
@@ -176,7 +175,7 @@ def askUrl():
         else:
             p = img['url'].split("/")[-1]
             urllib.request.urlretrieve(img['url'],p)
-            print ("Saved new image as " + p)
+            print ('Saved new image as ' + p)
 
 SinceLastRun() #actually runs the script.
 
