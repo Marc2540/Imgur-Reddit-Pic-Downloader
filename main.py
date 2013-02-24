@@ -1,6 +1,7 @@
 #!/usr/bin/python 
 #Created in Python 3.3.0
 #Created by Marc2540
+#Version 0.9
 
 from time import time
 from time import sleep
