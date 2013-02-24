@@ -231,44 +231,52 @@ def fetchImg():
     
     i=0
     while i < numberOfLoops:
-        img = data['data']['children'][i]['data']
-        i += 1
-        fileType = img['url'].lower()[-3:]
-        domain = img['url'].lower().split("/")[2]
-        allowedType = fileType == 'png' or fileType == 'jpg'
-        if debug == True: #debug check
-            print ('')
-            print ('This loop runs if i < ' + str(numberOfLoops) + '. I is currently ' + str(i))
-            sleep(1)
-            print ('')
-            print ('The current value of "img" is:')
-            sleep(0.5)
-            print ('')
-            print (img)
-            print ('')
-            sleep(2)
-            print ('Is this a self-post? ' + str(img['is_self']))
-            print ('The go-to url of this post is: ' + img['url'])
-            print ('The domain is ' + domain)
-            print ('What are the 3 last letters of the url? (filetype if valid image) .' + fileType)
-            print ('Is the filetype allowed? ' + str(allowedType))
-            sleep(7.5)
-            
-        if img['is_self'] == True:
-            if verbose == True:
-                print ('Image is a self-post. Skipped')
-        elif allowedType == False:
-            if verbose == True:
-                print ('Image isn\'t a png or jpg. Skipped')
-        elif domain != 'i.imgur.com':
-            if verbose == True:
-                print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
-        else:
-            p = img['url'].split("/")[-1]
-            with urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
-                copyfileobj(in_stream, out_file)
+        try:
+            img = data['data']['children'][i]['data']
+            i += 1
+            fileType = img['url'].lower()[-3:]
+            domain = img['url'].lower().split("/")[2]
+            allowedType = fileType == 'png' or fileType == 'jpg'
+            if debug == True: #debug check
+                print ('')
+                print ('This loop runs if i < ' + str(numberOfLoops) + '. I is currently ' + str(i))
+                sleep(1)
+                print ('')
+                print ('The current value of "img" is:')
+                sleep(0.5)
+                print ('')
+                print (img)
+                print ('')
+                sleep(2)
+                print ('Is this a self-post? ' + str(img['is_self']))
+                print ('The go-to url of this post is: ' + img['url'])
+                print ('The domain is ' + domain)
+                print ('What are the 3 last letters of the url? (filetype if valid image) .' + fileType)
+                print ('Is the filetype allowed? ' + str(allowedType))
+                sleep(7.5)
+                
+            if img['is_self'] == True:
                 if verbose == True:
-                    print ('Saved new image as ' + p)
+                    print ('Image is a self-post. Skipped')
+            elif allowedType == False:
+                if verbose == True:
+                    print ('Image isn\'t a png or jpg. Skipped')
+            #elif domain != 'i.imgur.com':
+                #if verbose == True:
+                    #print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
+            else:
+                p = img['url'].split("/")[-1]
+                with urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
+                    copyfileobj(in_stream, out_file)
+                    if verbose == True:
+                        print ('Saved new image as ' + p)
+        except IndexError:
+            print ('No data left in .json file.')
+            break
+        except KeyboardInterrupt:
+            print ('Aborted)
+            break
+        
 
 #actually runs the main part of the script.
 if skipFrequencyCheck == True:
