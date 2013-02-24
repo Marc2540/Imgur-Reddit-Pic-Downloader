@@ -11,4 +11,4 @@ Place pictures in seperate folder.
    Setting for deleting old pictures in folder.  
 Add support for more domains.  
 Add support for more filetypes.  
-Replace urllib.request.urlretrieve with something that's not a legacy interface...
+Move the settings out of the main script and into the config file.
