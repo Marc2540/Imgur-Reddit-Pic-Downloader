@@ -14,6 +14,10 @@ math.ceil() rounds out time() float to an int.
 urllib.request lets me pull things from websites.
 the json library lets me decode .json.
 """
+from urllib.request import urlopen
+from shutil import copyfileobj
+
+
 
 #settings
 debug = False
@@ -74,7 +78,7 @@ def sinceLastRun():
     elif verbose == 'no':
         askUrl()
     else:
-        print ('According to config.txt, it hasn\'t been ' + str(frequencyCheck) ' seconds since last run.')
+        print ('According to config.txt, it hasn\'t been ' + str(frequencyCheck) + ' seconds since last run')
         goAheadAnyway = input ('Want to continue anyway? (Y/N) ')
         if goAheadAnyway.upper() == 'Y':
             askUrl()
@@ -88,7 +92,9 @@ def sinceLastRun():
 
 def write_time_to_config_file():
     if skipWriteToConfig != True:
-        """Writes the current time to the config file and tells the user that the program is done"""
+        """
+        Writes the current time to the config file
+        """
         configFile_Write = open(configFileName, "w")
         configFile_Write.write("lastRunTime=" + str(ceil(time())))
         configFile_Write.close()
@@ -211,7 +217,7 @@ def debugPreFetch():
 def fetchImg():
     if debug == True:
         debugPreFetch()
-    response = urllib.request.urlopen(finalUrl)
+    response = urlopen(finalUrl)
     content = response.read()
     data = json.loads(content.decode("utf8"))
     
@@ -246,7 +252,7 @@ def fetchImg():
             print ('The domain is ' + domain)
             print ('What are the 3 last letters of the url? (filetype if valid image) .' + fileType)
             print ('Is the filetype allowed? ' + str(allowedType))
-            sleep(10)
+            sleep(7.5)
             
         if img['is_self'] == True:
             if verbose == True:
@@ -259,28 +265,12 @@ def fetchImg():
                 print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         else:
             p = img['url'].split("/")[-1]
-            urllib.request.urlretrieve(img['url'],p)
-            if verbose == True:
-                print ('Saved new image as ' + p)
+            with urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
+                copyfileobj(in_stream, out_file)
+                if verbose == True:
+                    print ('Saved new image as ' + p)
 
 #actually runs the main part of the script.
 if skipFrequencyCheck == True:
     askUrl()
 else: sinceLastRun()
-
-
-
-    #the following code is from reddit user u/Jonno_FTW. It is heavily edited above.
-    #It now runs on python 3.3 and suits my needs: (without this I would have had a really hard time!)
-    #http://www.reddit.com/r/wallpapers/comments/138qi2/i_have_a_script_that_randomizes_wallpapers_from/c71tqti
-"""
-    while 1:
-        img = choice(page['data']['children'])
-        if img['is_self'] or img['url'].lower() not in ['png','jpg']:
-            continue
-        else:
-            p = img['url'].split("/")[-1]
-            urlretrieve(img['url'],p)
-            print ("Saved new image as",p)
-            break
-"""
