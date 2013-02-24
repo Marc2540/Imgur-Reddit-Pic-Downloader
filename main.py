@@ -261,9 +261,9 @@ def fetchImg():
             elif allowedType == False:
                 if verbose == True:
                     print ('Image isn\'t a png or jpg. Skipped')
-            #elif domain != 'i.imgur.com':
-                #if verbose == True:
-                    #print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
+            elif domain != 'i.imgur.com':
+                if verbose == True:
+                    print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
             else:
                 p = img['url'].split("/")[-1]
                 with urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
