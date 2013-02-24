@@ -3,8 +3,7 @@
 #Created by Marc2540
 #Version 0.9
 
-from time import time
-from time import sleep
+from time import time, sleep
 from math import ceil
 from urllib.request import urlopen
 from shutil import copyfileobj
@@ -277,7 +276,7 @@ def fetchImg():
             print ('No data left in .json file.')
             break
         except KeyboardInterrupt:
-            print ('Aborted)
+            print ('Aborted')
             break
         
 
