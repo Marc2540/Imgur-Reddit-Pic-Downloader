@@ -6,17 +6,19 @@
 from time import time
 from time import sleep
 from math import ceil
-import urllib.request
+from urllib.request import urlopen
+from shutil import copyfileobj
 import json
 """
 time.time() gets time since the epoch.
 time.sleep() will pause for 'x' seconds.
 math.ceil() rounds out time() float to an int.
 urllib.request lets me pull things from websites.
+shutil lets me download the results from urlopen.
 the json library lets me decode .json.
 """
-from urllib.request import urlopen
-from shutil import copyfileobj
+
+
 
 
 
