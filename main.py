@@ -1,7 +1,7 @@
-#!/usr/bin/python 
+#!/usr/bin/python3 
 #Created in Python 3.3.0
 #Created by Marc2540
-#Version 0.9.2
+#Version 0.9.3
 
 from time import time, sleep
 from math import ceil
@@ -19,11 +19,10 @@ import urllib.error
 #lets me handle HTTP errors.
 
 
-
-#settings
-debug = False
+#settings - Todo: Move to config file and/or commandline flags
+debug = True
 frequency_check = 604800 #change if you want to change run frequency (in seconds) default = 604800 (1 week) 
-fixed_url = 'empty' #will use this url and wont ask for subreddit. NO ERROR CHECKING. Default is 'empty'
+fixed_url = '' #will use this url and wont ask for subreddit. Default is ''
 skip_frequency_check = False #default = False
 skip_write_to_config = False #default = False
 run_without_config_file = False #Script wont make, read, nor write to config.txt   default = False
@@ -33,42 +32,12 @@ verbose = True #want it to be silent? default = True
 
 #pre-defining
 last_run_time = 0
-subreddit_url = 'empty'
-final_url = 'empty'
-debug_modifier = 'none'
-
-
-if debug:
-    verbose = True
-if run_without_config_file:
-    skip_frequency_check = True
-    skip_write_to_config = True
-else:
-    if len(config_file_name) < 2 or len(config_file_name) > 100:
-        config_file_name = 'config.txt'
-        if verbose:
-            print ('Invalid config file name, reverted to "config.txt".')
-    #checks if config.txt exists. Creates it if it doesn't exist.
-    try:
-        with open(config_file_name) as f:
-            pass
-    except:
-        if verbose:
-            print ('Config file doesn\'t exist. Creating it.')
-        f = open(config_file_name,'w')
-        f.write('last_run_time=0')
-        f.close()
-    del f
-
-    #reads last_run_time from config file.
-    config_file_read = open(config_file_name, "r")
-    for last_run_time in config_file_read:
-        if "last_run_time=" in last_run_time:
-            if debug: #debug check
-                print ('\nLast runtime was ' + last_run_time[14:])
-                sleep(5)
-    config_file_read.close()
-
+subreddit_url = None
+final_url = None
+debug_modifier = None
+p = None
+data = None
+file_type = None
 
 def since_last_run():
     """
@@ -81,16 +50,16 @@ def since_last_run():
     elif not verbose:
         ask_url()
     else:
-        print ('According to config.txt, it hasn\'t been ' + str(frequency_check) + ' seconds since last run')
-        go_ahead_anyway = input ('Want to continue anyway? (Y/N) ')
+        print('According to config.txt, it hasn\'t been ' + str(frequency_check) + ' seconds since last run')
+        go_ahead_anyway = input('Want to continue anyway? (Y/N) ')
         if go_ahead_anyway.upper() == 'Y':
             ask_url()
         elif go_ahead_anyway.upper() == 'N':
-            print ('Aborted.')
+            print('Aborted.')
             sleep(2)
             exit()
         else:
-            print ('I didn\'t understand you, try again.')
+            print('I didn\'t understand you, try again.')
             since_last_run()
 
 def write_time_to_config_file():
@@ -98,12 +67,10 @@ def write_time_to_config_file():
         """
         Writes the current time to the config file
         """
-        config_file_write = open(config_file_name, "w")
-        config_file_write.write("last_run_time=" + str(ceil(time())))
-        config_file_write.close()
-        if debug: #debug check
-            print ('\nWrote last_run_time=' + str(ceil(time())) + ' to config file.')
-            sleep(5)
+        with open(config_file_name,'w') as f:
+            f.write("last_run_time=" + str(ceil(time())))
+        del f
+        debug_func('last_run_time write')
 
     
 def ask_url():
@@ -113,121 +80,144 @@ def ask_url():
     Asks which subreddit you want to pull from and fixes the formatting of the http request.
     Then it runs modify_url()
     """
-    if fixed_url != 'empty':
+    if fixed_url:
         final_url = fixed_url
         fetch_img()
     else:
         ask_for_subreddit = input('Which subreddit do you want to pull from? (e.g. r/pics) ')
-        if str(ask_for_subreddit) == '':
-            if verbose:
-                print ('Please try again.')
+        ask_for_subreddit_lower = ask_for_subreddit.lower()
+        if not ask_for_subreddit:
+            verbose_func('try again')
             ask_url()
-        elif ask_for_subreddit.startswith('/') and ask_for_subreddit.endswith('/'):
-            subreddit_url = 'http://reddit.com' + ask_for_subreddit + '.json'
+        elif ask_for_subreddit_lower.startswith('/') and ask_for_subreddit_lower.endswith('/'):
+            subreddit_url = 'http://reddit.com' + ask_for_subreddit_lower + '.json'
             modify_url()
-        elif ask_for_subreddit.startswith('/'):
-            subreddit_url = 'http://reddit.com' + ask_for_subreddit + '/.json'
+        elif ask_for_subreddit_lower.startswith('/'):
+            subreddit_url = 'http://reddit.com' + ask_for_subreddit_lower + '/.json'
             modify_url()
-        elif ask_for_subreddit.startswith('r/') and ask_for_subreddit.endswith('/'):
-            subreddit_url = 'http://reddit.com/' + ask_for_subreddit + '.json'
+        elif ask_for_subreddit_lower.startswith('r/') and ask_for_subreddit_lower.endswith('/'):
+            subreddit_url = 'http://reddit.com/' + ask_for_subreddit_lower + '.json'
             modify_url()
-        elif ask_for_subreddit.startswith('r/') and not ask_for_subreddit.endswith('/'):
-            subreddit_url = 'http://reddit.com/' + ask_for_subreddit + '/.json'
+        elif ask_for_subreddit_lower.startswith('r/') and not ask_for_subreddit_lower.endswith('/'):
+            subreddit_url = 'http://reddit.com/' + ask_for_subreddit_lower + '/.json'
             modify_url()
         else:
-            if verbose:
-                print ('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
+            verbose_func('ask_for_subreddit writing')
             ask_url()
 
 
 def modify_url():
     global final_url
+    global debug_modifier
     """
     Takes the valid subreddit from ask_url() and modifies it.
     Runs fetch_img() afterwards.
     """
-    ask_for_modifiers = input ('Do you want to pull from the frontpage, or modify the pull-request? (frontpage/modify) ')
-    if str(ask_for_modifiers) == 'frontpage':
-        final_url = subreddit_url
-        debug_modifier = 'frontpage'
-        fetch_img()
-    elif str(ask_for_modifiers) != 'modify':
-        if verbose:
-            print ('Please try again.')
+    if not len(subreddit_url.split('/'))==6:
+        print('Your subreddit input was strange.')
         ask_url()
     else:
-        chosen_modifier = input ('What kind of posts do you want? (new/top/rising/controversial) ')
-        if chosen_modifier == 'rising':
-            final_url = subreddit_url[:-5] + 'rising/.json'
-            debug_modifier = 'rising'
+        ask_for_modifiers = input('Do you want to pull from the frontpage, or modify the pull-request? (frontpage/modify) ')
+        if str(ask_for_modifiers) == 'frontpage':
+            final_url = subreddit_url
+            debug_modifier = 'frontpage'
             fetch_img()
-        elif chosen_modifier == 'con' or chosen_modifier == 'controversial':
-            final_url = subreddit_url[:-5] + 'controversial/.json'
-            debug_modifier = 'controversial'
-            fetch_img()
-        elif chosen_modifier == 'new':
-            final_url = subreddit_url[:-5] + 'new/.json'
-            debug_modifier = 'new'
-            fetch_img()
-        elif chosen_modifier == 'top':
-            modifier_type = input ('What kind of "top" modifier do you want to use? (hour/day/week/month/year/alltime) ')
-            if modifier_type == 'hour':
-                final_url = subreddit_url[:-5] + 'top/.json?sort=top&t=hour'
-                debug_modifier = 'top - hour'
-                fetch_img()
-            if modifier_type == 'day':
-                final_url = subreddit_url[:-5] + 'top/.json?sort=top&t=day'
-                debug_modifier = 'top - day'
-                fetch_img()
-            if modifier_type == 'week':
-                final_url = subreddit_url[:-5] + 'top/.json?sort=top&t=week'
-                debug_modifier = 'top - week'
-                fetch_img()
-            if modifier_type == 'month':
-                final_url = subreddit_url[:-5] + 'top/.json?sort=top&t=month'
-                debug_modifier = 'top - month'
-                fetch_img()
-            if modifier_type == 'alltime':
-                final_url = subreddit_url[:-5] + 'top/.json?sort=top&t=all'
-                debug_modifier = 'top - alltime'
+        elif str(ask_for_modifiers) != 'modify':
+            verbose_func('try again')
+            ask_url()
+        else:
+            chosen_modifier = input('What kind of posts do you want? (new/top/rising/controversial) ')
+            if chosen_modifier.lower() in ['new', 'top', 'rising', 'controversial']:
+                if chosen_modifier.lower() == 'top':
+                    modifier_type = input ('What kind of "top" modifier do you want to use? (hour/day/week/month/year/all) ')
+                    if modifier_type.lower() in ['hour', 'day', 'week', 'month', 'all']:
+                        final_url = subreddit_url[:-5] + 'top/.json?sort=top&t={}'.format(modifier_type)
+                        debug_modifier = 'top - {}'.format(modifier_type)
+                    else:
+                        verbose_func('try again')
+                        modify_url()
+                else:
+                    final_url = subreddit_url[:-5] + '{}/.json'.format(chosen_modifier)
+                    debug_modifier = chosen_modifier.lower()
                 fetch_img()
             else:
-                print ('Please try again.')
+                verbose_func('try again')
                 modify_url()
-        else:
-            print ('Please try again.')
-            modify_url()
+                
+def verbose_func(arg):
+    """ Collection of messages that will only print if verbose is True """ 
+    if verbose:
+        if arg == 'try again':
+            print('Please try again.')
+        elif arg == 'ask_for_subreddit writing':
+            print('I didn\'t understand you. Are you sure you\'re writing it correctly? (e.g r/pics, /r/pics or /r/pics/)')
+        elif arg == 'is_self':
+            print('Image is a self-post. Skipped.')
+        elif arg == 'allowed_type':
+            print('Image isn\'t is either an album, or not on the allowed filtype list. Skipped.')
+        elif arg == 'allowed_domains':
+            print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
+        elif arg == 'image_name':
+            print('Saved new image as ' + p)
 
-
-def debug_pre_fetch():
-    """
-    Debugging values before fetching subreddit data.
-    Placed here because I call fetch_img() inside if statements and
-    dont want to repeat the 'if debug == true' statement 1000 times.
-    """
-    #debugging for ask_url()
-    print ('\nThe subreddit url to get .json from is ' + subreddit_url)
-    #debugging for modify_url()
-    print ('\nThe chosen modifier is ' + str(debug_modifier))
-    print ('\nThe final url to get .json from is ' + str(final_url))
-    sleep(5)
+            
+def debug_func(arg):
+    """ Collection of debug messages that will only print if debug is True """
+    if debug:
+        if arg == 'last_run_time read':
+            print ('\nLast runtime was ' + last_run_time[14:])
+            sleep(2)
+        elif arg == 'last_run_time write':
+            #debugging for write_time_to_config_file()
+            print('\nWrote last_run_time=' + str(ceil(time())) + ' to config file.')
+            sleep(2)
+        elif arg == 'pre fetching images':
+            #debugging for ask_url()
+            print('\nThe subreddit url to get .json from is ' + subreddit_url)
+            #debugging for modify_url()
+            print('\nThe chosen modifier is: ' + str(debug_modifier))
+            print('\nThe final url to get .json from is ' + str(final_url))
+            sleep(5)
+        elif arg == 'data_return':
+            #debugging for fetch_img()
+            print('\nThe data from ' + final_url + ' is returning this data: \n')
+            sleep(0.5)
+            print(data)
+            sleep(5)
+        elif arg == 'fetching images':
+            #debugging 'while loop' in fetch_img()
+            print('\nThis loop runs if i < ' + str(number_of_loops) + '. I is currently ' + str(i))
+            sleep(1)
+            print('\nThe current value of "img" is: \n')
+            sleep(0.5)
+            print(img)
+            sleep(2)
+            print('\nIs this a self-post? ' + str(img['is_self']))
+            print('The go-to url of this post is: ' + img['url'])
+            print('The domain is ' + domain)
+            print('What are the 3 last letters of the url? (file_type if valid image) .' + file_type)
+            print('Is the file_type allowed? ' + str(allowed_type))
+            sleep(5)
 
 
 
 def fetch_img():
-    if debug:
-        debug_pre_fetch()
+    global p
+    global data
+    global i
+    global number_of_loops
+    global domain
+    global img
+    global allowed_type
+    global file_type
+    debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent':'Imgur-Reddit-Pic-Downloader v0.9.2 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.2 by u/Marc2540'})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
     
-    if debug: #debug check
-        print ('\nThe data from ' + final_url + ' is returning this data: \n')
-        sleep(1)
-        print (data)
-        sleep(5)
+    debug_func('data_return')
     
     i=0
     while i < number_of_loops:
@@ -238,43 +228,57 @@ def fetch_img():
             domain = img['url'].lower().split("/")[2]
             allowed_type = file_type == 'png' or file_type == 'jpg' or file_type == 'gif'
             allowed_domains = domain == 'i.imgur.com' or domain == 'i.minus.com'
-            if debug: #debug check
-                print ('\nThis loop runs if i < ' + str(number_of_loops) + '. I is currently ' + str(i))
-                sleep(1)
-                print ('\nThe current value of "img" is: \n')
-                sleep(0.5)
-                print (img)
-                sleep(2)
-                print ('\nIs this a self-post? ' + str(img['is_self']))
-                print ('The go-to url of this post is: ' + img['url'])
-                print ('The domain is ' + domain)
-                print ('What are the 3 last letters of the url? (file_type if valid image) .' + file_type)
-                print ('Is the file_type allowed? ' + str(allowed_type))
-                sleep(5)
+            
+            debug_func('fetching images')
             
             if img['is_self']:
-                if verbose:
-                    print ('Image is a self-post. Skipped')
+                verbose_func('is_self')
             elif not allowed_type:
-                if verbose:
-                    print ('Image isn\'t is either an album, or not on the allowed filtype list. Skipped.')
+                verbose_func('allowed_type')
             elif not allowed_domains:
-                if verbose:
-                    print ('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
+                verbose_func('allowed_domains')
             else:
                 p = img['url'].split("/")[-1]
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
-                    if verbose:
-                        print ('Saved new image as ' + p)
-            sleep(2) #limit speed of requests. - limit to a max of 30/sec in accordance with the reddit api
+                    verbose_func('image_name')
+            sleep(3) #limit speed of requests. - limit in accordance with the reddit api
         except IndexError:
-            print ('No data left in .json file.')
+            print('No data left in .json file.')
             break
         except KeyboardInterrupt:
-            print ('Aborted')
+            print('Aborted')
             break
-        
+
+
+
+if debug:
+    verbose = True
+if run_without_config_file:
+    skip_frequency_check = True
+    skip_write_to_config = True
+else:
+    if len(config_file_name) < 2 or len(config_file_name) > 100:
+        config_file_name = 'config.txt'
+        print ('Invalid config file name, reverted to "config.txt".')
+    #checks if config.txt exists. Creates it if it doesn't exist.
+    try:
+        with open(config_file_name) as f:
+            pass
+    except:
+        print ('Config file doesn\'t exist. Creating it.')
+        with open(config_file_name,'w') as f:
+            f.write('last_run_time=0')
+    del f
+
+    #reads last_run_time from config file.
+    with open(config_file_name,'r') as f:
+        for last_run_time in f:
+            if "last_run_time=" in last_run_time:
+                debug_func('last_run_time read')
+    del f
+
+
 
 #actually runs the main part of the script.
 if skip_frequency_check:
