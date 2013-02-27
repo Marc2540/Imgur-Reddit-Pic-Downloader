@@ -1,7 +1,7 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Created by Marc2540
-#Version 0.9.3
+#Version 0.9.4
 
 from time import time, sleep
 from math import ceil
@@ -20,9 +20,9 @@ import urllib.error
 
 
 #settings - Todo: Move to config file and/or commandline flags
-debug = True
+debug = False
 frequency_check = 604800 #change if you want to change run frequency (in seconds) default = 604800 (1 week) 
-fixed_url = '' #will use this url and wont ask for subreddit. Default is ''
+fixed_url = None #will use this url and wont ask for subreddit. Default is None
 skip_frequency_check = False #default = False
 skip_write_to_config = False #default = False
 run_without_config_file = False #Script wont make, read, nor write to config.txt   default = False
@@ -41,8 +41,7 @@ file_type = None
 
 def since_last_run():
     """
-    Finds out how much time has passed since last run and,
-    if one week has passed, runs the program.
+    Finds out how much time has passed since last run and, if one week (default) has passed, runs the program.
     If one week hasn't passed, it asks if you want to continue anyway.
     """
     if time() >= (int(last_run_time[14:]) + frequency_check):
@@ -50,7 +49,7 @@ def since_last_run():
     elif not verbose:
         ask_url()
     else:
-        print('According to config.txt, it hasn\'t been ' + str(frequency_check) + ' seconds since last run')
+        print('According to config.txt, it hasn\'t been {} seconds since last run'.format(frequency_check))
         go_ahead_anyway = input('Want to continue anyway? (Y/N) ')
         if go_ahead_anyway.upper() == 'Y':
             ask_url()
@@ -68,7 +67,7 @@ def write_time_to_config_file():
         Writes the current time to the config file
         """
         with open(config_file_name,'w') as f:
-            f.write("last_run_time=" + str(ceil(time())))
+            f.write('last_run_time=' + str(ceil(time())))
         del f
         debug_func('last_run_time write')
 
@@ -158,45 +157,45 @@ def verbose_func(arg):
         elif arg == 'allowed_domains':
             print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         elif arg == 'image_name':
-            print('Saved new image as ' + p)
+            print('Saved new image as {}'.format(p))
 
             
 def debug_func(arg):
     """ Collection of debug messages that will only print if debug is True """
     if debug:
         if arg == 'last_run_time read':
-            print ('\nLast runtime was ' + last_run_time[14:])
+            print ('\nLast runtime was {}'.format(last_run_time[14:]))
             sleep(2)
         elif arg == 'last_run_time write':
             #debugging for write_time_to_config_file()
-            print('\nWrote last_run_time=' + str(ceil(time())) + ' to config file.')
+            print('\nWrote last_run_time={} to config file.'.format(ceil(time())))
             sleep(2)
         elif arg == 'pre fetching images':
             #debugging for ask_url()
-            print('\nThe subreddit url to get .json from is ' + subreddit_url)
+            print('\nThe subreddit url to get .json from is {}'.format(subreddit_url))
             #debugging for modify_url()
-            print('\nThe chosen modifier is: ' + str(debug_modifier))
-            print('\nThe final url to get .json from is ' + str(final_url))
+            print('\nThe chosen modifier is: {}'.format(debug_modifier))
+            print('\nThe final url to get .json from is {}'.format(final_url))
             sleep(5)
         elif arg == 'data_return':
             #debugging for fetch_img()
-            print('\nThe data from ' + final_url + ' is returning this data: \n')
+            print('\nThe data from {} is returning this data: \n'.format(final_url))
             sleep(0.5)
             print(data)
             sleep(5)
         elif arg == 'fetching images':
             #debugging 'while loop' in fetch_img()
-            print('\nThis loop runs if i < ' + str(number_of_loops) + '. I is currently ' + str(i))
+            print('\nThis loop runs if i < {0}. I is currently {1}'.format(number_of_loops, i))
             sleep(1)
             print('\nThe current value of "img" is: \n')
             sleep(0.5)
             print(img)
             sleep(2)
-            print('\nIs this a self-post? ' + str(img['is_self']))
-            print('The go-to url of this post is: ' + img['url'])
-            print('The domain is ' + domain)
-            print('What are the 3 last letters of the url? (file_type if valid image) .' + file_type)
-            print('Is the file_type allowed? ' + str(allowed_type))
+            print('\nIs this a self-post? {}'.format(img['is_self']))
+            print('The go-to url of this post is: {}'.format(img['url']))
+            print('The domain is {}'.format(domain))
+            print('What are the 3 last letters of the url? (file_type if valid image) .{}'.format(file_type))
+            print('Is the file_type allowed? {}'.format(allowed_type))
             sleep(5)
 
 
@@ -212,7 +211,7 @@ def fetch_img():
     global file_type
     debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.2 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.4 by u/Marc2540'})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
@@ -242,7 +241,7 @@ def fetch_img():
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
                     verbose_func('image_name')
-            sleep(3) #limit speed of requests. - limit in accordance with the reddit api
+            sleep(2) #limit speed of requests. - limit in accordance with the reddit api
         except IndexError:
             print('No data left in .json file.')
             break
