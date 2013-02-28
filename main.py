@@ -1,7 +1,7 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Created by Marc2540
-#Version 0.9.4
+#Version 0.9.5
 
 from time import time, sleep
 from math import ceil
@@ -9,6 +9,7 @@ import urllib.request
 from shutil import copyfileobj
 import json
 import urllib.error
+from datetime import date
 
 #time.time() gets time since the epoch.
 #time.sleep() will pause for 'x' seconds.
@@ -153,7 +154,7 @@ def verbose_func(arg):
         elif arg == 'is_self':
             print('Image is a self-post. Skipped.')
         elif arg == 'allowed_type':
-            print('Image isn\'t is either an album, or not on the allowed filtype list. Skipped.')
+            print('Image is either an album, or not on the allowed filtype list. Skipped.')
         elif arg == 'allowed_domains':
             print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         elif arg == 'image_name':
@@ -211,7 +212,7 @@ def fetch_img():
     global file_type
     debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.4 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.5 by u/Marc2540'})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
@@ -225,19 +226,34 @@ def fetch_img():
             i += 1
             file_type = img['url'].lower()[-3:]
             domain = img['url'].lower().split("/")[2]
-            allowed_type = file_type == 'png' or file_type == 'jpg' or file_type == 'gif'
-            allowed_domains = domain == 'i.imgur.com' or domain == 'i.minus.com'
+            allowed_type = True if file_type in ['png', 'jpg', 'jpeg', 'gif'] else False
+            allowed_domains = True if domain in ['i.imgur.com', 'imgur.com', 'i.minus.com'] else False
             
             debug_func('fetching images')
             
             if img['is_self']:
                 verbose_func('is_self')
+            """
+            #This is VERY much Work in Progress
+            elif img['url'].split('/')[-2] == 'a':
+                print('Image is an imgur album.')
+                imgur_url = 'https://api.imgur.com/3/gallery/album/' + img['url'].split('/')[-1]
+                print (imgur_url)
+                imgur_request = urllib.request.Request(imgur_url, None, headers={'Authorization' : 'Client-ID 112ba8a808315df'})
+                imgur_response = urllib.request.urlopen(imgur_request)
+                imgur_content = imgur_response.read()
+                imgur_data = json.loads(imgur_content.decode("utf8"))
+                
+                print (imgur_data)
+                break
+                sleep(100)
+            """
             elif not allowed_type:
                 verbose_func('allowed_type')
             elif not allowed_domains:
                 verbose_func('allowed_domains')
             else:
-                p = img['url'].split("/")[-1]
+                p = '{0} - {1}.{2}'.format(date.today(), img['title'][0:35], file_type)
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
                     verbose_func('image_name')
