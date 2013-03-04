@@ -1,81 +1,82 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
-#Created by Marc2540
-#Version 0.9.5
+#Written by Marc2540
+#Version 0.9.6
 
-from time import time, sleep
-from math import ceil
-import urllib.request
-from shutil import copyfileobj
-import json
-import urllib.error
-from datetime import date
+from time import time, sleep        #time.time() gets time since the epoch.
+                                    #time.sleep() will pause for 'x' seconds.
+from math import ceil               #math.ceil() rounds out time() float to an int.
+import urllib.request               #urllib.request lets me pull things from websites.
+from shutil import copyfileobj      #shutil lets me download the results from urlopen.
+import json                         #the json library lets me decode .json.
+from datetime import date           #datetime lets me get current date
+import argparse                     #argparse lets me parse command-line arguments
 
-#time.time() gets time since the epoch.
-#time.sleep() will pause for 'x' seconds.
-#math.ceil() rounds out time() float to an int.
-#urllib.request lets me pull things from websites.
-#shutil lets me download the results from urlopen.
-#the json library lets me decode .json.
-#lets me handle HTTP errors.
+parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit.')
+group1 = parser.add_argument_group(title='Optional arguments: Config File')
+group2 = parser.add_argument_group(title='Optional arguments: Run Frequency')
+parser.add_argument('-d', '--debug', help='Debug flag', action='store_true')
+parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
+group1.add_argument('-dcfg', help='Doesn\'t make a config file.', action='store_true')
+group1.add_argument('-cfg', help='Specify config file name.', default='config.txt')
+group2.add_argument('-fc', '--freq_enable', help='Enables frequency check.', action='store_true')
+group2.add_argument('-fd', '--freq_duration', type=int, help='Specifies run frequency in seconds.', default=604800)
+parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input.')
+parser.add_argument('-la', '--loop_amount', type=int, help='Number of loops through .json file.', default=25)
+flags = vars(parser.parse_args())
 
-
-#settings - Todo: Move to config file and/or commandline flags
-debug = False
-frequency_check = 604800 #change if you want to change run frequency (in seconds) default = 604800 (1 week) 
-fixed_url = None #will use this url and wont ask for subreddit. Default is None
-skip_frequency_check = False #default = False
-skip_write_to_config = False #default = False
-run_without_config_file = False #Script wont make, read, nor write to config.txt   default = False
-config_file_name = 'config.txt' #default = 'config.txt'
-number_of_loops = 25 #change number of cycles through the .json file. default = 25
-verbose = True #want it to be silent? default = True
+debug = flags['debug']
+verbose = flags['quiet']
+run_without_config_file = flags['dcfg']
+config_file_name = flags['cfg']
+check_run_frequency = flags['freq_enable']
+frequency_duration = flags['freq_duration']
+number_of_loops = flags['loop_amount']
+fixed_url = flags['url']
 
 #pre-defining
 last_run_time = 0
 subreddit_url = None
-final_url = None
 debug_modifier = None
 p = None
 data = None
 file_type = None
+final_url = None
 
 def since_last_run():
     """
     Finds out how much time has passed since last run and, if one week (default) has passed, runs the program.
     If one week hasn't passed, it asks if you want to continue anyway.
     """
-    if time() >= (int(last_run_time[14:]) + frequency_check):
+    if time() >= int(last_run_time[14:]) + frequency_duration:
         ask_url()
     elif not verbose:
         ask_url()
     else:
-        print('According to config.txt, it hasn\'t been {} seconds since last run'.format(frequency_check))
+        print('According to config.txt, it hasn\'t been {} seconds since last run'.format(frequency_duration))
         go_ahead_anyway = input('Want to continue anyway? (Y/N) ')
         if go_ahead_anyway.upper() == 'Y':
             ask_url()
         elif go_ahead_anyway.upper() == 'N':
             print('Aborted.')
-            sleep(2)
+            sleep(1)
             exit()
         else:
             print('I didn\'t understand you, try again.')
             since_last_run()
 
 def write_time_to_config_file():
-    if not skip_write_to_config:
-        """
-        Writes the current time to the config file
-        """
+    if not run_without_config_file:
+        """Writes the current time to the config file"""
         with open(config_file_name,'w') as f:
             f.write('last_run_time=' + str(ceil(time())))
         del f
         debug_func('last_run_time write')
 
-    
 def ask_url():
     write_time_to_config_file()
     global subreddit_url
+    global final_url
     """
     Asks which subreddit you want to pull from and fixes the formatting of the http request.
     Then it runs modify_url()
@@ -104,7 +105,6 @@ def ask_url():
         else:
             verbose_func('ask_for_subreddit writing')
             ask_url()
-
 
 def modify_url():
     global final_url
@@ -160,7 +160,6 @@ def verbose_func(arg):
         elif arg == 'image_name':
             print('Saved new image as {}'.format(p))
 
-            
 def debug_func(arg):
     """ Collection of debug messages that will only print if debug is True """
     if debug:
@@ -198,8 +197,16 @@ def debug_func(arg):
             print('What are the 3 last letters of the url? (file_type if valid image) .{}'.format(file_type))
             print('Is the file_type allowed? {}'.format(allowed_type))
             sleep(5)
-
-
+        elif arg == 'cmd flags':
+            print('\nIs debugging on? {}'.format(debug))
+            print('\nIs verbose on? {}'.format(verbose))
+            print('\nIs the config file disabled? {}'.format(run_without_config_file))
+            print('\nWhat is the name of the config file? {}'.format(config_file_name))
+            print('\nDo we check the run frequency? {}'.format(check_run_frequency))
+            print('\nFrequency between runs is {}.'.format(frequency_duration))
+            print('\nThe fixed url is {}.'.format(fixed_url))
+            print('\nWe are looping through the .json file {} times.'.format(number_of_loops))
+            sleep(5)
 
 def fetch_img():
     global p
@@ -226,7 +233,7 @@ def fetch_img():
             i += 1
             file_type = img['url'].lower()[-3:]
             domain = img['url'].lower().split("/")[2]
-            allowed_type = True if file_type in ['png', 'jpg', 'jpeg', 'gif'] else False
+            allowed_type = True if file_type in ['png', 'jpg', 'gif'] else False
             allowed_domains = True if domain in ['i.imgur.com', 'imgur.com', 'i.minus.com'] else False
             
             debug_func('fetching images')
@@ -248,7 +255,7 @@ def fetch_img():
                 break
                 sleep(100)
             """
-            elif not allowed_type:
+            if not allowed_type:
                 verbose_func('allowed_type')
             elif not allowed_domains:
                 verbose_func('allowed_domains')
@@ -265,13 +272,11 @@ def fetch_img():
             print('Aborted')
             break
 
-
-
 if debug:
     verbose = True
+    debug_func('cmd flags')
 if run_without_config_file:
-    skip_frequency_check = True
-    skip_write_to_config = True
+    check_run_frequency = False
 else:
     if len(config_file_name) < 2 or len(config_file_name) > 100:
         config_file_name = 'config.txt'
@@ -296,6 +301,6 @@ else:
 
 
 #actually runs the main part of the script.
-if skip_frequency_check:
+if not check_run_frequency:
     ask_url()
 else: since_last_run()
