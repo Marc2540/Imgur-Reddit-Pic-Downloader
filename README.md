@@ -10,6 +10,5 @@ Written in python 3.3
 Place pictures in seperate folder.  
    Setting for deleting old pictures in folder.  
 Add support for more domains.  
-Add support for more filetypes.  
-Move the settings out of the main script and into the config file. + support for commandline flags.  
+Add support for more filetypes.   
 Add support for Imgur albums.
