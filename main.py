@@ -1,7 +1,7 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Written by Marc2540
-#Version 0.9.6
+#Version 0.9.7
 
 from time import time, sleep        #time.time() gets time since the epoch.
                                     #time.sleep() will pause for 'x' seconds.
@@ -13,14 +13,13 @@ from datetime import date           #datetime lets me get current date
 import argparse                     #argparse lets me parse command-line arguments
 
 parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit.')
-group1 = parser.add_argument_group(title='Optional arguments: Config File')
-group2 = parser.add_argument_group(title='Optional arguments: Run Frequency')
+group1 = parser.add_argument_group(title='Optional arguments: Run frequency options')
 parser.add_argument('-d', '--debug', help='Debug flag', action='store_true')
 parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
-group1.add_argument('-dcfg', help='Doesn\'t make a config file.', action='store_true')
+group1.add_argument('-dcfg', help='Doesn\'t make a config file.', action='store_true') #remove this option and make frequency check toggle config file too
 group1.add_argument('-cfg', help='Specify config file name.', default='config.txt')
-group2.add_argument('-fc', '--freq_enable', help='Enables frequency check.', action='store_true')
-group2.add_argument('-fd', '--freq_duration', type=int, help='Specifies run frequency in seconds.', default=604800)
+group1.add_argument('-fc', '--freq_enable', help='Enables frequency check.', action='store_true')
+group1.add_argument('-fd', '--freq_duration', type=int, help='Specifies run frequency in seconds.', default=604800)
 parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input.')
 parser.add_argument('-la', '--loop_amount', type=int, help='Number of loops through .json file.', default=25)
 flags = vars(parser.parse_args())
@@ -39,9 +38,13 @@ last_run_time = 0
 subreddit_url = None
 debug_modifier = None
 p = None
+imgur_p = None
 data = None
 file_type = None
 final_url = None
+imgur_number_of_images = None
+imgur_url = None
+imgur_i = None
 
 def since_last_run():
     """
@@ -157,8 +160,12 @@ def verbose_func(arg):
             print('Image is either an album, or not on the allowed filtype list. Skipped.')
         elif arg == 'allowed_domains':
             print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
-        elif arg == 'image_name':
+        elif arg == 'image name':
             print('Saved new image as {}'.format(p))
+        elif arg == 'imgur image name':
+            print('Imgur Album: Saved new image as {}'.format(imgur_p))
+        elif arg == 'imgur album':
+            print('Image is an imgur album. And contains {}'.format(imgur_number_of_images))
 
 def debug_func(arg):
     """ Collection of debug messages that will only print if debug is True """
@@ -177,12 +184,6 @@ def debug_func(arg):
             print('\nThe chosen modifier is: {}'.format(debug_modifier))
             print('\nThe final url to get .json from is {}'.format(final_url))
             sleep(5)
-        elif arg == 'data_return':
-            #debugging for fetch_img()
-            print('\nThe data from {} is returning this data: \n'.format(final_url))
-            sleep(0.5)
-            print(data)
-            sleep(5)
         elif arg == 'fetching images':
             #debugging 'while loop' in fetch_img()
             print('\nThis loop runs if i < {0}. I is currently {1}'.format(number_of_loops, i))
@@ -198,6 +199,7 @@ def debug_func(arg):
             print('Is the file_type allowed? {}'.format(allowed_type))
             sleep(5)
         elif arg == 'cmd flags':
+            #debugging command-line flags
             print('\nIs debugging on? {}'.format(debug))
             print('\nIs verbose on? {}'.format(verbose))
             print('\nIs the config file disabled? {}'.format(run_without_config_file))
@@ -207,6 +209,13 @@ def debug_func(arg):
             print('\nThe fixed url is {}.'.format(fixed_url))
             print('\nWe are looping through the .json file {} times.'.format(number_of_loops))
             sleep(5)
+        elif arg == 'imgur album url':
+            print('\nThe imgur album link is {}'.format(imgur_url))
+            sleep(2)
+        elif arg == 'imgur fetching images':
+            print('This imgur album has {0} images, we are downloading image number {1}'.format(imgur_number_of_images, imgur_i))
+            sleep(2)
+            
 
 def fetch_img():
     global p
@@ -217,14 +226,16 @@ def fetch_img():
     global img
     global allowed_type
     global file_type
+    global imgur_p
+    global imgur_number_of_images
+    global imgur_url
+    global imgur_i
     debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.5 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.7 by u/Marc2540'})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
-    
-    debug_func('data_return')
     
     i=0
     while i < number_of_loops:
@@ -240,22 +251,33 @@ def fetch_img():
             
             if img['is_self']:
                 verbose_func('is_self')
-            """
-            #This is VERY much Work in Progress
-            elif img['url'].split('/')[-2] == 'a':
-                print('Image is an imgur album.')
-                imgur_url = 'https://api.imgur.com/3/gallery/album/' + img['url'].split('/')[-1]
-                print (imgur_url)
+            
+            elif img['url'].split('/')[-3] + '/' + img['url'].split('/')[-2] == 'imgur.com/a':
+                #imgur album downloading
+                imgur_url = 'https://api.imgur.com/3/album/{}.json'.format(img['url'].split('/')[-1])
+                debug_func('imgur album url')
+                
                 imgur_request = urllib.request.Request(imgur_url, None, headers={'Authorization' : 'Client-ID 112ba8a808315df'})
                 imgur_response = urllib.request.urlopen(imgur_request)
                 imgur_content = imgur_response.read()
                 imgur_data = json.loads(imgur_content.decode("utf8"))
                 
-                print (imgur_data)
-                break
-                sleep(100)
-            """
-            if not allowed_type:
+                imgur_i = 0
+                imgur_number_of_images = imgur_data['data']['images_count']
+                
+                verbose_func('imgur_album')
+                while imgur_i < imgur_number_of_images:
+                    imgur_image_link = imgur_data['data']['images'][imgur_i]['link']
+                    imgur_p = '{0} - {1} - {2}'.format(date.today(), imgur_data['data']['title'], imgur_image_link.split('/')[-1])
+                    
+                    imgur_i +=1
+                    
+                    debug_func('imgur fetching images')
+                    
+                    with urllib.request.urlopen(imgur_image_link) as in_stream, open(imgur_p, 'wb') as out_file:
+                        copyfileobj(in_stream, out_file)
+                        verbose_func('imgur image name')
+            elif not allowed_type:
                 verbose_func('allowed_type')
             elif not allowed_domains:
                 verbose_func('allowed_domains')
@@ -263,7 +285,7 @@ def fetch_img():
                 p = '{0} - {1}.{2}'.format(date.today(), img['title'][0:35], file_type)
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
-                    verbose_func('image_name')
+                    verbose_func('image name')
             sleep(2) #limit speed of requests. - limit in accordance with the reddit api
         except IndexError:
             print('No data left in .json file.')
