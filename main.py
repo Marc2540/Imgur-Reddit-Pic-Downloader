@@ -1,37 +1,40 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Written by Marc2540
-#Version 0.9.7
+#Version 0.9.8
 
-from time import time, sleep        #time.time() gets time since the epoch.
-                                    #time.sleep() will pause for 'x' seconds.
-from math import ceil               #math.ceil() rounds out time() float to an int.
-import urllib.request               #urllib.request lets me pull things from websites.
-from shutil import copyfileobj      #shutil lets me download the results from urlopen.
-import json                         #the json library lets me decode .json.
-from datetime import date           #datetime lets me get current date
-import argparse                     #argparse lets me parse command-line arguments
+from time import time, sleep            #time.time() gets time since the epoch
+                                        #time.sleep() will pause for 'x' seconds
+from math import ceil                   #math.ceil() rounds out time() float to an int
+import urllib.request                   #urllib.request lets me pull things from websites
+from shutil import copyfileobj          #shutil lets me download the results from urlopen
+import json                             #the json library lets me decode .json
+from datetime import date               #datetime lets me get current date
+import argparse                         #argparse lets me parse command-line arguments
+from string import ascii_letters, digits #gives me a list of allowed characters for name sanitization
+from unicodedata import normalize       #used swapping accented characters with unaccented ones before sanitization
+import os                               #used for creating directories
 
 parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit.')
 group1 = parser.add_argument_group(title='Optional arguments: Run frequency options')
 parser.add_argument('-d', '--debug', help='Debug flag', action='store_true')
 parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
-group1.add_argument('-dcfg', help='Doesn\'t make a config file.', action='store_true') #remove this option and make frequency check toggle config file too
-group1.add_argument('-cfg', help='Specify config file name.', default='config.txt')
-group1.add_argument('-fc', '--freq_enable', help='Enables frequency check.', action='store_true')
+group1.add_argument('-fc', '--freq_enable', help='Enables frequency check (and config file).', action='store_true')
 group1.add_argument('-fd', '--freq_duration', type=int, help='Specifies run frequency in seconds.', default=604800)
-parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input.')
+group1.add_argument('-cfg', help='Specify config file name.', default='config.txt')
 parser.add_argument('-la', '--loop_amount', type=int, help='Number of loops through .json file.', default=25)
+parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input. (either subreddit or imgur album)')
+
 flags = vars(parser.parse_args())
 
 debug = flags['debug']
 verbose = flags['quiet']
-run_without_config_file = flags['dcfg']
 config_file_name = flags['cfg']
 check_run_frequency = flags['freq_enable']
 frequency_duration = flags['freq_duration']
 number_of_loops = flags['loop_amount']
 fixed_url = flags['url']
+
 
 #pre-defining
 last_run_time = 0
@@ -45,6 +48,7 @@ final_url = None
 imgur_number_of_images = None
 imgur_url = None
 imgur_i = None
+run_without_config_file = True
 
 def since_last_run():
     """
@@ -146,7 +150,12 @@ def modify_url():
             else:
                 verbose_func('try again')
                 modify_url()
-                
+
+def filename_sanitization(filename):
+    valid_characters = str('-_.() {0}{1}'.format(ascii_letters, digits))
+    clean_filename = str(normalize('NFKD', filename).encode('ASCII', 'ignore'))
+    return ''.join(char for char in clean_filename if char in valid_characters)[1:]
+
 def verbose_func(arg):
     """ Collection of messages that will only print if verbose is True """ 
     if verbose:
@@ -157,7 +166,7 @@ def verbose_func(arg):
         elif arg == 'is_self':
             print('Image is a self-post. Skipped.')
         elif arg == 'allowed_type':
-            print('Image is either an album, or not on the allowed filtype list. Skipped.')
+            print('Image is not on the allowed filetype list. Skipped.')
         elif arg == 'allowed_domains':
             print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         elif arg == 'image name':
@@ -232,10 +241,13 @@ def fetch_img():
     global imgur_i
     debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.7 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.8 by u/Marc2540'})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
+    
+    folder = '{0}\\{1}'.format(os.getcwd(), date.today())
+    os.makedirs(folder, exist_ok=True)
     
     i=0
     while i < number_of_loops:
@@ -268,21 +280,26 @@ def fetch_img():
                 verbose_func('imgur_album')
                 while imgur_i < imgur_number_of_images:
                     imgur_image_link = imgur_data['data']['images'][imgur_i]['link']
-                    imgur_p = '{0} - {1} - {2}'.format(date.today(), imgur_data['data']['title'], imgur_image_link.split('/')[-1])
+                    valid_album_title = filename_sanitization(imgur_data['data']['title'])
+                    imgur_folder = '{0}\\{1}'.format(folder, valid_album_title)
                     
+                    os.makedirs(imgur_folder, exist_ok=True)
+                    
+                    imgur_p = '{0}\\{1}'.format(imgur_folder, imgur_image_link.split('/')[-1])
                     imgur_i +=1
-                    
                     debug_func('imgur fetching images')
                     
                     with urllib.request.urlopen(imgur_image_link) as in_stream, open(imgur_p, 'wb') as out_file:
                         copyfileobj(in_stream, out_file)
                         verbose_func('imgur image name')
+                        
             elif not allowed_type:
                 verbose_func('allowed_type')
             elif not allowed_domains:
                 verbose_func('allowed_domains')
             else:
-                p = '{0} - {1}.{2}'.format(date.today(), img['title'][0:35], file_type)
+                valid_title = filename_sanitization(img['title'][0:35])
+                p = '{0}\\{1}.{2}'.format(folder, valid_title, file_type)
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
                     verbose_func('image name')
@@ -291,8 +308,7 @@ def fetch_img():
             print('No data left in .json file.')
             break
         except KeyboardInterrupt:
-            print('Aborted')
-            break
+            exit()
 
 if debug:
     verbose = True
@@ -321,8 +337,8 @@ else:
     del f
 
 
-
 #actually runs the main part of the script.
 if not check_run_frequency:
+    run_without_config_file = False
     ask_url()
 else: since_last_run()
