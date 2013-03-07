@@ -1,7 +1,7 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Written by Marc2540
-#Version 0.9.8
+#Version 0.9.9
 
 from time import time, sleep            #time.time() gets time since the epoch
                                         #time.sleep() will pause for 'x' seconds
@@ -35,6 +35,11 @@ frequency_duration = flags['freq_duration']
 number_of_loops = flags['loop_amount']
 fixed_url = flags['url']
 
+#user specifications:
+user_User_agent = 'Imgur-Reddit-Pic-Downloader v0.9.9 by u/Marc2540'
+user_allowed_file_type = ['png', 'jpg', 'gif']
+user_allowed_domains = ['i.imgur.com', 'imgur.com', 'i.minus.com']
+user_imgur_ClientID = '112ba8a808315df'
 
 #pre-defining
 last_run_time = 0
@@ -48,7 +53,6 @@ final_url = None
 imgur_number_of_images = None
 imgur_url = None
 imgur_i = None
-run_without_config_file = True
 
 def since_last_run():
     """
@@ -73,21 +77,22 @@ def since_last_run():
             since_last_run()
 
 def write_time_to_config_file():
-    if not run_without_config_file:
-        """Writes the current time to the config file"""
+    """Writes the current time to the config file"""
+    if check_run_frequency:
         with open(config_file_name,'w') as f:
             f.write('last_run_time=' + str(ceil(time())))
         del f
         debug_func('last_run_time write')
 
 def ask_url():
-    write_time_to_config_file()
-    global subreddit_url
-    global final_url
     """
     Asks which subreddit you want to pull from and fixes the formatting of the http request.
     Then it runs modify_url()
     """
+    write_time_to_config_file()
+    global subreddit_url
+    global final_url
+    
     if fixed_url:
         final_url = fixed_url
         fetch_img()
@@ -114,12 +119,13 @@ def ask_url():
             ask_url()
 
 def modify_url():
-    global final_url
-    global debug_modifier
     """
     Takes the valid subreddit from ask_url() and modifies it.
     Runs fetch_img() afterwards.
     """
+    global final_url
+    global debug_modifier
+    
     if not len(subreddit_url.split('/'))==6:
         print('Your subreddit input was strange.')
         ask_url()
@@ -170,11 +176,13 @@ def verbose_func(arg):
         elif arg == 'allowed_domains':
             print('Image isn\'t hosted on an allowed domain, skipping to avoid 404 errors.')
         elif arg == 'image name':
-            print('Saved new image as {}'.format(p))
+            print('Saved new image as {0}, in folder "{1}"'.format(p.split('\\')[-1], p.split('\\')[-2]))
         elif arg == 'imgur image name':
-            print('Imgur Album: Saved new image as {}'.format(imgur_p))
+            print('Imgur Album: Saved new image as {0}, in folder "{1}\\{2}"'.format(imgur_p.split('\\')[-1], imgur_p.split('\\')[-3], imgur_p.split('\\')[-2]))
         elif arg == 'imgur album':
-            print('Image is an imgur album. And contains {}'.format(imgur_number_of_images))
+            print('Link is an imgur album. And contains {} images'.format(imgur_number_of_images))
+        elif arg == 'imgur album info.txt':
+            print('Album information has been written to info.txt in the album folder')
 
 def debug_func(arg):
     """ Collection of debug messages that will only print if debug is True """
@@ -211,9 +219,8 @@ def debug_func(arg):
             #debugging command-line flags
             print('\nIs debugging on? {}'.format(debug))
             print('\nIs verbose on? {}'.format(verbose))
-            print('\nIs the config file disabled? {}'.format(run_without_config_file))
             print('\nWhat is the name of the config file? {}'.format(config_file_name))
-            print('\nDo we check the run frequency? {}'.format(check_run_frequency))
+            print('\nDo we check the run frequency and enable config file? {}'.format(check_run_frequency))
             print('\nFrequency between runs is {}.'.format(frequency_duration))
             print('\nThe fixed url is {}.'.format(fixed_url))
             print('\nWe are looping through the .json file {} times.'.format(number_of_loops))
@@ -223,10 +230,10 @@ def debug_func(arg):
             sleep(2)
         elif arg == 'imgur fetching images':
             print('This imgur album has {0} images, we are downloading image number {1}'.format(imgur_number_of_images, imgur_i))
-            sleep(2)
             
 
 def fetch_img():
+    """Pulls .json information and downloads valid images."""
     global p
     global data
     global i
@@ -241,7 +248,7 @@ def fetch_img():
     global imgur_i
     debug_func('pre fetching images')
     
-    request = urllib.request.Request(final_url, None, headers={'User-Agent' : 'Imgur-Reddit-Pic-Downloader v0.9.8 by u/Marc2540'})
+    request = urllib.request.Request(final_url, None, headers={'User-Agent' : '{}'.format(user_User_agent)})
     response = urllib.request.urlopen(request)
     content = response.read()
     data = json.loads(content.decode("utf8"))
@@ -253,23 +260,23 @@ def fetch_img():
     while i < number_of_loops:
         try:
             img = data['data']['children'][i]['data']
-            i += 1
+            
             file_type = img['url'].lower()[-3:]
             domain = img['url'].lower().split("/")[2]
-            allowed_type = True if file_type in ['png', 'jpg', 'gif'] else False
-            allowed_domains = True if domain in ['i.imgur.com', 'imgur.com', 'i.minus.com'] else False
+            allowed_type = True if file_type in user_allowed_file_type else False
+            allowed_domains = True if domain in user_allowed_domains else False
             
-            debug_func('fetching images')
+            if i < 3:
+                debug_func('fetching images')
             
             if img['is_self']:
                 verbose_func('is_self')
-            
             elif img['url'].split('/')[-3] + '/' + img['url'].split('/')[-2] == 'imgur.com/a':
                 #imgur album downloading
                 imgur_url = 'https://api.imgur.com/3/album/{}.json'.format(img['url'].split('/')[-1])
                 debug_func('imgur album url')
                 
-                imgur_request = urllib.request.Request(imgur_url, None, headers={'Authorization' : 'Client-ID 112ba8a808315df'})
+                imgur_request = urllib.request.Request(imgur_url, None, headers={'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)})
                 imgur_response = urllib.request.urlopen(imgur_request)
                 imgur_content = imgur_response.read()
                 imgur_data = json.loads(imgur_content.decode("utf8"))
@@ -277,17 +284,26 @@ def fetch_img():
                 imgur_i = 0
                 imgur_number_of_images = imgur_data['data']['images_count']
                 
-                verbose_func('imgur_album')
+                imgur_album_title = filename_sanitization(imgur_data['data']['title']) if imgur_data['data']['title'] else 'Unnamed Album'
+                imgur_folder = '{0}\\{1}'.format(folder, imgur_album_title)
+                imgur_description = filename_sanitization(imgur_data['data']['description']) if imgur_data['data']['description'] else 'No desciption'
+                imgur_uploader = filename_sanitization(imgur_data['data']['account_url']) if imgur_data['data']['account_url'] else 'Anonymous uploader'
+                imgur_album_link = imgur_data['data']['link']
+                
+                os.makedirs(imgur_folder, exist_ok=True)
+                with open('{0}\\info.txt'.format(imgur_folder), 'a') as f:
+                    f.write('\nTitle: {0}\nUploader: {1}\nAlbum link: {2}\nNumber of images: {3}\nDescription: {4}'.format(imgur_album_title, imgur_uploader, imgur_album_link, imgur_number_of_images, imgur_description))
+                verbose_func('imgur album info.txt')
+                del f
+                
+                verbose_func('imgur album')
                 while imgur_i < imgur_number_of_images:
                     imgur_image_link = imgur_data['data']['images'][imgur_i]['link']
-                    valid_album_title = filename_sanitization(imgur_data['data']['title'])
-                    imgur_folder = '{0}\\{1}'.format(folder, valid_album_title)
-                    
                     os.makedirs(imgur_folder, exist_ok=True)
                     
-                    imgur_p = '{0}\\{1}'.format(imgur_folder, imgur_image_link.split('/')[-1])
-                    imgur_i +=1
+                    imgur_p = '{0}\\{1} - {2}'.format(imgur_folder, imgur_i, imgur_image_link.split('/')[-1])
                     debug_func('imgur fetching images')
+                    imgur_i +=1
                     
                     with urllib.request.urlopen(imgur_image_link) as in_stream, open(imgur_p, 'wb') as out_file:
                         copyfileobj(in_stream, out_file)
@@ -303,6 +319,7 @@ def fetch_img():
                 with urllib.request.urlopen(img['url']) as in_stream, open(p, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
                     verbose_func('image name')
+            i += 1
             sleep(2) #limit speed of requests. - limit in accordance with the reddit api
         except IndexError:
             print('No data left in .json file.')
@@ -313,8 +330,8 @@ def fetch_img():
 if debug:
     verbose = True
     debug_func('cmd flags')
-if run_without_config_file:
-    check_run_frequency = False
+if not check_run_frequency:
+    ask_url()
 else:
     if len(config_file_name) < 2 or len(config_file_name) > 100:
         config_file_name = 'config.txt'
@@ -325,20 +342,13 @@ else:
             pass
     except:
         print ('Config file doesn\'t exist. Creating it.')
-        with open(config_file_name,'w') as f:
+        with open(config_file_name, 'w') as f:
             f.write('last_run_time=0')
     del f
-
     #reads last_run_time from config file.
     with open(config_file_name,'r') as f:
         for last_run_time in f:
             if "last_run_time=" in last_run_time:
                 debug_func('last_run_time read')
     del f
-
-
-#actually runs the main part of the script.
-if not check_run_frequency:
-    run_without_config_file = False
-    ask_url()
-else: since_last_run()
+    since_last_run()
