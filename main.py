@@ -3,7 +3,7 @@
 #Written by Marc2540
 
 #from time import time, sleep            #time.time() gets time since the epoch
-                                        #time.sleep() will pause for 'x' seconds
+#                                        #time.sleep() will pause for 'x' seconds
 #from math import ceil                   #math.ceil() rounds out time() float to an int
 import urllib.request                   #urllib.request lets me pull things from websites
 from shutil import copyfileobj          #shutil lets me download the results from urlopen
@@ -77,69 +77,57 @@ class UrlFixing:
 
 class RedditData:
     """Get info from reddit .json response."""
-    
-    def get_filetype(data, number):
-        file_type = data['data']['children'][number]['data']['url'][-3:]
+    def __init__(self, response):
+        self.data = response['data']['children']
+        
+    def get_filetype(self, number):
+        file_type = self.data[number]['data']['url'][-3:]
         return file_type
     
-    def get_domain(data, number):
-        domain = data['data']['children'][number]['data']['url'].split('/')[2]
+    def get_domain(self, number):
+        domain = self.data[number]['data']['url'].split('/')[2]
         return domain
         
-    def get_full_url(data, number):
-        #print(data)
-        #print(number)
-        full_image_url = data['data']['children'][number]['data']['url']
-        #print(full_image_url)
+    def get_full_url(self, number):
+        full_image_url = self.data[number]['data']['url']
         return full_image_url
         
-    def check_if_imgur_album(data, number):
-        temp_url_split = data['data']['children'][number]['data']['url'].split('/')
+    def check_if_imgur_album(self, number):
+        temp_url_split = self.data[number]['data']['url'].split('/')
         return True if temp_url_split[-3] + '/' + temp_url_split[-2] == 'imgur.com/a' else False
     
-    def self_post(data, number):
-        is_self = data['data']['children'][number]['data']['is_self']
+    def self_post(self, number):
+        is_self = self.data[number]['data']['is_self']
         return is_self
         
-    def link_title(data, number):
-        image_title = data['data']['children'][number]['data']['title']
+    def link_title(self, number):
+        image_title = filename_sanitization(self.data[number]['data']['title'])
         return image_title
+    
+    def get_imgur_api_url(self, number):
+        full_album_url = self.data[number]['data']['url']
+        imgur_api_url = 'https://api.imgur.com/3/album/{}.json'.format(full_album_url.split('/')[-1])
+        return imgur_api_url
 
 
 class ImgurData:
     """Get info from imgur api .json response."""
+    def __init__(self, response):
+        self.title = filename_sanitization(response['data']['title'])
+        self.valid_title = 'Unnamed Album' if self.title == 'None' else self.title
+        self.description = filename_sanitization(response['data']['description'])
+        self.uploader = filename_sanitization(response['data']['account_url'])
+        self.album_link = response['data']['link']
+        self.images_count = response['data']['images_count']
+        self.image_info = response['data']['images']
     
-    def get_imgur_api_url(url):
-        imgur_api_url = 'https://api.imgur.com/3/album/{}.json'.format(url.split('/')[-1])
-        return imgur_api_url
-        
-    def get_album_title(imgur_response):
-        imgur_album_title = filename_sanitization(imgur_response['data']['title']) if imgur_response['data']['title'] else 'Unnamed Album'
-        return imgur_album_title
-    
-    def get_folder(folder, imgur_album_title):
-        imgur_folder = '{0}\\{1}'.format(folder, imgur_album_title)
+    def get_folder(self, folder):
+        imgur_folder = '{0}\\{1}'.format(folder, self.valid_title)
         os.makedirs(imgur_folder, exist_ok=True)
         return imgur_folder
         
-    def get_description(imgur_response):
-        imgur_description = filename_sanitization(imgur_response['data']['description']) if imgur_response['data']['description'] else 'No desciption'
-        return imgur_description
-    
-    def get_uploader(imgur_response):
-        imgur_uploader = filename_sanitization(imgur_response['data']['account_url']) if imgur_response['data']['account_url'] else 'Anonymous uploader'
-        return imgur_uploader
-
-    def get_album_link(imgur_response):
-        imgur_album_link = imgur_response['data']['link']
-        return imgur_album_link
-        
-    def get_image_number(imgur_response):
-        number_of_images = imgur_number_of_images = imgur_response['data']['images_count']
-        return number_of_images
-        
-    def get_image_link(imgur_response, number):
-        image_link = imgur_response['data']['images'][number]['link']
+    def get_image_link(self, number):
+        image_link = self.image_info[number]['link']
         return image_link
 
 
@@ -179,17 +167,21 @@ def main():
     fetch_img(chosen_url)
 
 def filename_sanitization(filename):
-    valid_characters = str('-_.() {0}{1}'.format(ascii_letters, digits))
-    clean_filename = str(normalize('NFKD', filename).encode('ASCII', 'ignore'))
-    return ''.join(char for char in clean_filename if char in valid_characters)[1:]
+    if filename:
+        valid_characters = str('-_.() {0}{1}'.format(ascii_letters, digits))
+        clean_filename = str(normalize('NFKD', filename).encode('ASCII', 'ignore'))
+        return ''.join(char for char in clean_filename if char in valid_characters)[1:]
+    else:
+        return 'None'
     
 def fetch_img(chosen_url):
-    reddit_data = RedditData
-    imgur_data = ImgurData
     url_defining = UrlFixing
     
+    imgur_headers = {'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)}
     reddit_headers = {'User-Agent' : '{}'.format(user_User_agent)}
     reddit_response = url_defining.pull_data(chosen_url, reddit_headers)
+
+    reddit_data = RedditData(reddit_response)
     
     folder = '{0}\\{1}'.format(os.getcwd(), date.today())
     os.makedirs(folder, exist_ok=True)
@@ -197,30 +189,27 @@ def fetch_img(chosen_url):
     i = 0
     try:
         while i < number_of_loops:
-            allowed_type = True if reddit_data.get_filetype(reddit_response, i) in user_allowed_filetype else False
-            allowed_domains = True if reddit_data.get_domain(reddit_response, i) in user_allowed_domains else False
+            allowed_type = True if reddit_data.get_filetype(i) in user_allowed_filetype else False
+            allowed_domains = True if reddit_data.get_domain(i) in user_allowed_domains else False
             
-            if reddit_data.self_post(reddit_response, i):
+            if reddit_data.self_post(i):
                 print('Skipped: Self-post.')
-            elif reddit_data.check_if_imgur_album(reddit_response, i):
-                imgur_url = imgur_data.get_imgur_api_url(reddit_data.get_full_url(reddit_response, i))
-                imgur_headers = {'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)}
+            elif reddit_data.check_if_imgur_album(i):
+                imgur_url = reddit_data.get_imgur_api_url(i)
                 imgur_response = url_defining.pull_data(imgur_url, imgur_headers)
+                imgur_data = ImgurData(imgur_response)
                 
-                with open('{0}\\info.txt'.format(imgur_data.get_folder(folder, imgur_data.get_album_title(imgur_response))), 'a') as f:
-                    f.write('\nTitle: {0}\nUploader: {1}\nAlbum link: {2}\nNumber of images: {3}\nDescription: {4}'.format(imgur_data.get_album_title(imgur_response),
-                                                                                                                           imgur_data.get_uploader(imgur_response),
-                                                                                                                           imgur_data.get_album_link(imgur_response),
-                                                                                                                           imgur_data.get_image_number(imgur_response),
-                                                                                                                           imgur_data.get_description(imgur_response)))
-                del f
-                
+                with open('{0}\\info.txt'.format(imgur_data.get_folder(folder)), 'a') as f:
+                    f.write('\nTitle: {0}\nUploader: {1}\nAlbum link: {2}\nNumber of images: {3}\nDescription: {4}'.format(imgur_data.valid_title,
+                                                                                                                           imgur_data.uploader,
+                                                                                                                           imgur_data.album_link,
+                                                                                                                           imgur_data.images_count,
+                                                                                                                           imgur_data.description))
                 imgur_i = 0
-                while imgur_i < imgur_data.get_image_number(imgur_response):
-                    imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder, imgur_data.get_album_title(imgur_response)),
-                                                            imgur_i,
-                                                            imgur_data.get_image_link(imgur_response, imgur_i).split('/')[-1])
-                    with urllib.request.urlopen(imgur_data.get_image_link(imgur_response, imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
+                while imgur_i < imgur_data.images_count:
+                    imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder),imgur_i,
+                                                            imgur_data.get_image_link(imgur_i).split('/')[-1])
+                    with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
                         copyfileobj(in_stream, out_file)
                         print('Imgur Album: Saved new image as {0}, in folder "{1}\\{2}"'.format(imgur_save_to.split('\\')[-1],
                                                                                                  imgur_save_to.split('\\')[-3],
@@ -232,13 +221,12 @@ def fetch_img(chosen_url):
             elif not allowed_domains:
                 print('Skipped: Invalid domain.')
             else:
-                valid_title = filename_sanitization(reddit_data.link_title(reddit_response, i))
-                save_to = '{0}\\{1}.{2}'.format(folder, valid_title, reddit_data.get_filetype(reddit_response, i))
-                with urllib.request.urlopen(reddit_data.get_full_url(reddit_response, i)) as in_stream, open(save_to, 'wb') as out_file:
-                    copyfileobj(in_stream, out_file)
+                save_to = '{0}\\{1}.{2}'.format(folder, reddit_data.link_title(i), reddit_data.get_filetype(i))
+                with urllib.request.urlopen(reddit_data.get_full_url(i)) as in_stream, open(save_to, 'wb') as out_file:
+                    copyfileobj(in_stream, out_file) 
                 print('Saved new image as {0}, in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
             i += 1
-            sleep(2) # limit speed of requests. - limit in accordance with the reddit api
+            sleep(2) # limit speed in accordance with the reddit api
     except IndexError:
         print('No data left in .json file.')
     except KeyboardInterrupt:
