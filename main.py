@@ -1,10 +1,8 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Written by Marc2540
+#Version 1.0.0
 
-#from time import time, sleep            #time.time() gets time since the epoch
-#                                        #time.sleep() will pause for 'x' seconds
-#from math import ceil                   #math.ceil() rounds out time() float to an int
 import urllib.request                   #urllib.request lets me pull things from websites
 from shutil import copyfileobj          #shutil lets me download the results from urlopen
 import json                             #the json library lets me decode .json
@@ -15,38 +13,25 @@ from unicodedata import normalize       #used swapping accented characters with 
 import os                               #used for creating directories
 
 parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit.')
-#group1 = parser.add_argument_group(title='Optional arguments: Run frequency options')
-#parser.add_argument('-d', '--debug', help='Debug flag', action='store_true')
-#parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
-#group1.add_argument('-fc', '--freq_enable', help='Enables frequency check (and config file).', action='store_true')
-#group1.add_argument('-fd', '--freq_duration', type=int, help='Specifies run frequency in seconds.', default=604800)
-#group1.add_argument('-cfg', help='Specify config filename.', default='config.txt')
-parser.add_argument('-la', '--loop_amount', type=int, help='Number of loops through .json file.', default=25)
+parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
 parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input. (either subreddit or imgur album)')
 
 flags = vars(parser.parse_args())
-
-#debug = flags['debug']
-#verbose = flags['quiet']
-#config_filename = flags['cfg']
-#check_run_frequency = flags['freq_enable']
-#frequency_duration = flags['freq_duration']
-number_of_loops = flags['loop_amount']
+verbose_bool = flags['quiet']
 fixed_url = flags['url']
 
 #user specifications:
-user_User_agent = 'Imgur-Reddit-Pic-Downloader v? by u/Marc2540'
+user_User_agent = 'Imgur-Reddit-Pic-Downloader v1.0.0 by u/Marc2540'
 user_allowed_filetype = ['png', 'jpg', 'gif']
 user_allowed_domains = ['i.imgur.com', 'imgur.com', 'i.minus.com']
 user_imgur_ClientID = '112ba8a808315df'
+user_number_of_loops = 25
 
 
 class UrlFixing:
     """Translates the user input to a useable reddit url"""
-    
     def pull_or_modify(user_input):
         chosen_modifier = ''
-        
         if user_input == 'frontpage':
             chosen_modifier = '.json'
         elif user_input in ['new', 'rising', 'controversial']:
@@ -131,7 +116,31 @@ class ImgurData:
         return image_link
 
 
+def verbose_func(*args):
+    """This function holds all the print messages."""
+    if verbose_bool:
+        if args[0] == 'seperation_line':
+            print('-'*30)
+        elif args[0] == 'self_post':
+            print('Skipped: Self-post.')
+        elif args[0] == 'filetype':
+            print('Skipped: Invalid filetype.')
+        elif args[0] == 'domain':
+            print('Skipped: Invalid domain.')
+        elif args[0] == 'index_error':
+            print('No data left in .json file.')
+        elif args[0] == 'image_save':
+            save_to = args[1]
+            print('Saved new image as {0}, in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
+        elif args[0] == 'imgur_image_save':
+            save_to = args[1]
+            print('Imgur Album: Saved new image as {0}, in folder "{1}\\{2}"'.format(save_to.split('\\')[-1],
+                                                                                     save_to.split('\\')[-3],
+                                                                                     save_to.split('\\')[-2]))
+
+
 def main():
+    """Takes care of prompting the user for all needed info, then runs fetch_img"""
     url_defining = UrlFixing
     ask_for_subreddit = None
     ask_for_modifiers = None
@@ -167,6 +176,7 @@ def main():
     fetch_img(chosen_url)
 
 def filename_sanitization(filename):
+    """Removes invalid characters in the arguments passed to it. Used for folder- and filenames."""
     if filename:
         valid_characters = str('-_.() {0}{1}'.format(ascii_letters, digits))
         clean_filename = str(normalize('NFKD', filename).encode('ASCII', 'ignore'))
@@ -175,6 +185,7 @@ def filename_sanitization(filename):
         return 'None'
     
 def fetch_img(chosen_url):
+    """Downloads images and saves them to a folder."""
     url_defining = UrlFixing
     
     imgur_headers = {'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)}
@@ -186,14 +197,16 @@ def fetch_img(chosen_url):
     folder = '{0}\\{1}'.format(os.getcwd(), date.today())
     os.makedirs(folder, exist_ok=True)
     
+    verbose_func('seperation_line')
     i = 0
     try:
-        while i < number_of_loops:
+        while i < user_number_of_loops:
             allowed_type = True if reddit_data.get_filetype(i) in user_allowed_filetype else False
             allowed_domains = True if reddit_data.get_domain(i) in user_allowed_domains else False
             
             if reddit_data.self_post(i):
-                print('Skipped: Self-post.')
+                print('self-post')
+                verbose_func('self_post')
             elif reddit_data.check_if_imgur_album(i):
                 imgur_url = reddit_data.get_imgur_api_url(i)
                 imgur_response = url_defining.pull_data(imgur_url, imgur_headers)
@@ -211,24 +224,22 @@ def fetch_img(chosen_url):
                                                             imgur_data.get_image_link(imgur_i).split('/')[-1])
                     with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
                         copyfileobj(in_stream, out_file)
-                        print('Imgur Album: Saved new image as {0}, in folder "{1}\\{2}"'.format(imgur_save_to.split('\\')[-1],
-                                                                                                 imgur_save_to.split('\\')[-3],
-                                                                                                 imgur_save_to.split('\\')[-2]))
+                        verbose_func('imgur_image_save', imgur_save_to)
 
                     imgur_i += 1
             elif not allowed_type:
-                print('Skipped: Invalid filetype.')
+                verbose_func('filetype')
             elif not allowed_domains:
-                print('Skipped: Invalid domain.')
+                verbose_func('domain')
             else:
                 save_to = '{0}\\{1}.{2}'.format(folder, reddit_data.link_title(i), reddit_data.get_filetype(i))
                 with urllib.request.urlopen(reddit_data.get_full_url(i)) as in_stream, open(save_to, 'wb') as out_file:
-                    copyfileobj(in_stream, out_file) 
-                print('Saved new image as {0}, in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
+                    copyfileobj(in_stream, out_file)
+                print('saved picture')
+                verbose_func('image_save', 'save_to')
             i += 1
-            sleep(2) # limit speed in accordance with the reddit api
     except IndexError:
-        print('No data left in .json file.')
+        verbose_func('index_error')
     except KeyboardInterrupt:
         exit()
 
