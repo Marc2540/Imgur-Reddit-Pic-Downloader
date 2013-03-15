@@ -9,7 +9,7 @@ import json                             #the json library lets me decode .json
 from datetime import date               #datetime lets me get current date
 import argparse                         #argparse lets me parse command-line arguments
 from string import ascii_letters, digits #gives me a list of allowed characters for name sanitization
-from unicodedata import normalize       #used swapping accented characters with unaccented ones before sanitization
+from unicodedata import normalize       #used for swapping accented characters with unaccented ones before sanitization
 import os                               #used for creating directories
 
 parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit or imgur album')
