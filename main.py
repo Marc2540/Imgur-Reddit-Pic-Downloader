@@ -12,9 +12,9 @@ from string import ascii_letters, digits #gives me a list of allowed characters 
 from unicodedata import normalize       #used swapping accented characters with unaccented ones before sanitization
 import os                               #used for creating directories
 
-parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit.')
-parser.add_argument('-q', '--quiet', help='Makes the script not print anything.', action='store_false')
-parser.add_argument('-u', '--url', help='Uses specified url instead of asking for input. (either subreddit or imgur album)')
+parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit or imgur album')
+parser.add_argument('-q', '--quiet', help='Diables status messages.', action='store_false')
+parser.add_argument('-u', '--url', help='Accepts subreddit or imgur album url.')
 
 flags = vars(parser.parse_args())
 verbose_bool = flags['quiet']
@@ -114,6 +114,14 @@ class ImgurData:
     def get_image_link(self, number):
         image_link = self.image_info[number]['link']
         return image_link
+    
+    def get_image_height(self, number):
+        image_height = self.image_info[number]['height']
+        return image_height
+    
+    def get_image_width(self, number):
+        image_width = self.image_info[number]['width']
+        return image_width
 
 
 def verbose_func(*args):
@@ -122,32 +130,50 @@ def verbose_func(*args):
         if args[0] == 'seperation_line':
             print('-'*30)
         elif args[0] == 'self_post':
-            print('Skipped: Self-post.')
+            print('Reddit: Skipped - Self-post.')
         elif args[0] == 'filetype':
-            print('Skipped: Invalid filetype.')
+            print('Reddit: Skipped - Invalid filetype.')
         elif args[0] == 'domain':
-            print('Skipped: Invalid domain.')
+            print('Reddit: Skipped - Invalid domain.')
         elif args[0] == 'index_error':
-            print('No data left in .json file.')
+            print('Possible error: No data left in .json file.')
         elif args[0] == 'image_save':
             save_to = args[1]
-            print('Saved new image as {0}, in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
+            print('Reddit: Saved new image as "{0}", in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
         elif args[0] == 'imgur_image_save':
             save_to = args[1]
             print('Imgur Album: Saved new image as {0}, in folder "{1}\\{2}"'.format(save_to.split('\\')[-1],
                                                                                      save_to.split('\\')[-3],
                                                                                      save_to.split('\\')[-2]))
+        elif args[0] == 'imgur_album_resolution':
+            width = args[1]
+            height = args[2]
+            print('Imgur Album: Skipped image. Resolution was {0}x{1}'.format(width, height))
+        elif args[0] == 'imgur_album_skip':
+            print('Reddit: Skipped imgur album.')
 
 
 def main():
-    """Takes care of prompting the user for all needed info, then runs fetch_img"""
+    """Takes care of prompting the user for all needed info, then runs fetch_image"""
     url_defining = UrlFixing
     ask_for_subreddit = None
     ask_for_modifiers = None
     ask_for_modifiers_specific = None
+    ask_for_imgur_options = None
+    valid_input = False
+    imgur_album_skip = False
+    imgur_res_min_h = 0
+    imgur_res_min_w = 0
+    imgur_chosen_url = None
     
     if fixed_url:
-        chosen_url = fixed_url
+        if fixed_url.split('/')[2] == 'reddit.com':
+            chosen_url = fixed_url
+        elif fixed_url.split('/')[2] == 'imgur.com' or fixed_url.split('/')[2] == 'api.imgur.com':
+            imgur_chosen_url = fixed_url
+        else:
+            print('Invalid url input.')
+            exit()
     else:
         while not ask_for_subreddit:
             ask_for_subreddit = input('Which subreddit do you want to pull from? (e.g. r/pics) ').lower()
@@ -173,7 +199,32 @@ def main():
                 ask_for_modifiers = None
         chosen_url = subreddit_url + chosen_modifier
 
-    fetch_img(chosen_url)
+    if verbose_bool:
+        while not ask_for_imgur_options:
+            ask_for_imgur_options = input('If you hit imgur albums, do you want to skip them or download them? (skip/download) ')
+            if ask_for_imgur_options == 'skip':
+                imgur_album_skip = True
+                valid_input = True
+            elif ask_for_imgur_options in ['download', 'down']:
+                imgur_album_skip = False
+                imgur_res = input('Do you want to pull all the imgur album images, or add a criteria? (all/criteria) ')
+                if imgur_res == 'all':
+                    valid_input = True
+                elif imgur_res in ['cri', 'criteria', 'res']:
+                    try:
+                        imgur_res_min_h = int(input('What is the minimum height of pictures that you want to download? '))
+                        imgur_res_min_w = int(input('What is the minimum width of pictures that you want to download? '))
+                        valid_input = True
+                    except ValueError:
+                        print('Not a number')
+                    
+            if not valid_input:
+                ask_for_imgur_options = None
+    
+    if imgur_chosen_url:
+        fetch_imgur_album(imgur_chosen_url, imgur_res_min_h, imgur_res_min_w)
+    else:
+        fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w)
 
 def filename_sanitization(filename):
     """Removes invalid characters in the arguments passed to it. Used for folder- and filenames."""
@@ -184,14 +235,12 @@ def filename_sanitization(filename):
     else:
         return 'None'
     
-def fetch_img(chosen_url):
+def fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w):
     """Downloads images and saves them to a folder."""
     url_defining = UrlFixing
     
-    imgur_headers = {'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)}
     reddit_headers = {'User-Agent' : '{}'.format(user_User_agent)}
     reddit_response = url_defining.pull_data(chosen_url, reddit_headers)
-
     reddit_data = RedditData(reddit_response)
     
     folder = '{0}\\{1}'.format(os.getcwd(), date.today())
@@ -208,39 +257,62 @@ def fetch_img(chosen_url):
                 print('self-post')
                 verbose_func('self_post')
             elif reddit_data.check_if_imgur_album(i):
-                imgur_url = reddit_data.get_imgur_api_url(i)
-                imgur_response = url_defining.pull_data(imgur_url, imgur_headers)
-                imgur_data = ImgurData(imgur_response)
-                
-                with open('{0}\\info.txt'.format(imgur_data.get_folder(folder)), 'a') as f:
-                    f.write('\nTitle: {0}\nUploader: {1}\nAlbum link: {2}\nNumber of images: {3}\nDescription: {4}'.format(imgur_data.valid_title,
-                                                                                                                           imgur_data.uploader,
-                                                                                                                           imgur_data.album_link,
-                                                                                                                           imgur_data.images_count,
-                                                                                                                           imgur_data.description))
-                imgur_i = 0
-                while imgur_i < imgur_data.images_count:
-                    imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder),imgur_i,
-                                                            imgur_data.get_image_link(imgur_i).split('/')[-1])
-                    with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
-                        copyfileobj(in_stream, out_file)
-                        verbose_func('imgur_image_save', imgur_save_to)
-
-                    imgur_i += 1
+                if not imgur_album_skip:
+                    imgur_url = reddit_data.get_imgur_api_url(i)
+                    fetch_imgur_album(imgur_url, imgur_res_min_h, imgur_res_min_w)
+                else:
+                    verbose_func('imgur_album_skip')
             elif not allowed_type:
                 verbose_func('filetype')
             elif not allowed_domains:
                 verbose_func('domain')
             else:
-                save_to = '{0}\\{1}.{2}'.format(folder, reddit_data.link_title(i), reddit_data.get_filetype(i))
+                save_to = '{0}\\{1} - {2}.{3}'.format(folder, i, reddit_data.link_title(i)[:40], reddit_data.get_filetype(i))
                 with urllib.request.urlopen(reddit_data.get_full_url(i)) as in_stream, open(save_to, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
-                print('saved picture')
-                verbose_func('image_save', 'save_to')
+                verbose_func('image_save', save_to)
             i += 1
     except IndexError:
         verbose_func('index_error')
     except KeyboardInterrupt:
         exit()
 
+def fetch_imgur_album(imgur_url, min_h, min_w):
+    """Handles saving of imgur albums with the imgur api."""
+    url_defining = UrlFixing
+    
+    imgur_headers = {'Authorization' : 'Client-ID {}'.format(user_imgur_ClientID)}
+    folder = '{0}\\{1}'.format(os.getcwd(), date.today())
+    
+    if not imgur_url[:29] == 'https://api.imgur.com/3/album':
+        imgur_api_url = 'https://api.imgur.com/3/album/{}.json'.format(imgur_url.split('/')[-1])
+        imgur_url = imgur_api_url
+    
+    imgur_response = url_defining.pull_data(imgur_url, imgur_headers)
+    imgur_data = ImgurData(imgur_response)
+    verbose_func('seperation_line')
+    
+    with open('{0}\\info.txt'.format(imgur_data.get_folder(folder)), 'a') as f:
+        f.write('\nTitle: {0}\nUploader: {1}\nAlbum link: {2}\nNumber of images: {3}\nDescription: {4}'.format(imgur_data.valid_title,
+                                                                                                               imgur_data.uploader,
+                                                                                                               imgur_data.album_link,
+                                                                                                               imgur_data.images_count,
+                                                                                                               imgur_data.description))
+    imgur_i = 0
+    try:
+        while imgur_i < imgur_data.images_count:
+            if min_h <= imgur_data.get_image_height(imgur_i) and min_w <= imgur_data.get_image_width(imgur_i):
+                imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder),imgur_i,
+                                                        imgur_data.get_image_link(imgur_i).split('/')[-1])
+                with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
+                    copyfileobj(in_stream, out_file)
+                verbose_func('imgur_image_save', imgur_save_to)
+            else:
+                verbose_func('imgur_album_resolution', imgur_data.get_image_width(imgur_i), imgur_data.get_image_height(imgur_i))
+            imgur_i += 1
+        verbose_func('seperation_line')
+    except KeyboardInterrupt:
+        exit()
+        
+        
 main()
