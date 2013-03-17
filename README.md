@@ -1,7 +1,7 @@
 Imgur + Reddit picture downloader
 ===========================
 
-**This program takes a reddit.com .json url and loops through it to download .png and .jpg pictures.**  
+**This program takes a reddit.com or imgur album url and loops through it to download .jpg, .png and .gif pictures.**  
 
 ### What it does:  
 1. Asks for subreddit to pull images from.
