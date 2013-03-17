@@ -201,7 +201,11 @@ def main():
 
     if verbose_bool:
         while not ask_for_imgur_options:
-            ask_for_imgur_options = input('If you hit imgur albums, do you want to skip them or download them? (skip/download) ')
+            if imgur_chosen_url:
+                ask_for_imgur_options = 'down'
+            else:
+                ask_for_imgur_options = input('If you hit imgur albums, do you want to skip them or download them? (skip/download) ')
+            
             if ask_for_imgur_options == 'skip':
                 imgur_album_skip = True
                 valid_input = True
