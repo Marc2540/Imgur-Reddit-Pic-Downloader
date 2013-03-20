@@ -22,4 +22,4 @@ python main.py -q or --quiet
 ```
 
 ### To do:  
-* Add deviantArt support
+* ~~Add deviantArt support~~
