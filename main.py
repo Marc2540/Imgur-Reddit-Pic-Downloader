@@ -1,7 +1,7 @@
 #!/usr/bin/python3 
 #Created in Python 3.3.0
 #Written by Marc2540
-#Version 1.0.0
+#Version 1.1.0
 
 import urllib.request                   #urllib.request lets me pull things from websites
 from shutil import copyfileobj          #shutil lets me download the results from urlopen
@@ -13,7 +13,7 @@ from unicodedata import normalize       #used for swapping accented characters w
 import os                               #used for creating directories
 
 parser = argparse.ArgumentParser(description='Downloads pictures from a specified subreddit or imgur album')
-parser.add_argument('-q', '--quiet', help='Diables status messages.', action='store_false')
+parser.add_argument('-q', '--quiet', help='Disables status messages.', action='store_false')
 parser.add_argument('-u', '--url', help='Accepts subreddit or imgur album url.')
 
 flags = vars(parser.parse_args())
@@ -21,7 +21,7 @@ verbose_bool = flags['quiet']
 fixed_url = flags['url']
 
 #user specifications:
-user_User_agent = 'Imgur-Reddit-Pic-Downloader v1.0.0 by u/Marc2540'
+user_User_agent = 'Imgur-Reddit-Pic-Downloader v1.1.0 by u/Marc2540'
 user_allowed_filetype = ['png', 'jpg', 'gif']
 user_allowed_domains = ['i.imgur.com', 'imgur.com', 'i.minus.com']
 user_imgur_ClientID = '112ba8a808315df'
@@ -29,7 +29,7 @@ user_number_of_loops = 25
 
 
 class UrlFixing:
-    """Translates the user input to a useable reddit url"""
+    """Translates the user input to a useable reddit url and pulls data."""
     def pull_or_modify(user_input):
         chosen_modifier = ''
         if user_input == 'frontpage':
@@ -53,10 +53,15 @@ class UrlFixing:
         return subreddit_url
         
     def pull_data(url, headers):
-        request = urllib.request.Request(url, None, headers)
-        response = urllib.request.urlopen(request)
-        content = response.read()
-        data = json.loads(content.decode("utf8"))
+        if headers:
+            request = urllib.request.Request(url, None, headers)
+            response = urllib.request.urlopen(request)
+            content = response.read()
+            data = json.loads(content.decode("utf8"))
+        else:
+            response = urllib.request.urlopen(url)
+            content = response.read()
+            data = json.loads(content.decode("utf8"))
         return data
 
 
@@ -80,6 +85,13 @@ class RedditData:
     def check_if_imgur_album(self, number):
         temp_url_split = self.data[number]['data']['url'].split('/')
         return True if temp_url_split[-3] + '/' + temp_url_split[-2] == 'imgur.com/a' else False
+
+    def check_if_deviantart(self, number):
+        temp_url_split = self.data[number]['data']['url'].split('/')
+        try:
+            return True if temp_url_split[2][-15:] + '/' + temp_url_split[3] == '.deviantart.com/art' else False
+        except IndexError:
+            return False
     
     def self_post(self, number):
         is_self = self.data[number]['data']['is_self']
@@ -137,7 +149,7 @@ def verbose_func(*args):
             print('Reddit: Skipped - Invalid domain.')
         elif args[0] == 'index_error':
             print('Possible error: No data left in .json file.')
-        elif args[0] == 'image_save':
+        elif args[0] == 'image save':
             save_to = args[1]
             print('Reddit: Saved new image as "{0}", in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
         elif args[0] == 'imgur_image_save':
@@ -151,84 +163,9 @@ def verbose_func(*args):
             print('Imgur Album: Skipped image. Resolution was {0}x{1}'.format(width, height))
         elif args[0] == 'imgur_album_skip':
             print('Reddit: Skipped imgur album.')
-
-
-def main():
-    """Takes care of prompting the user for all needed info, then runs fetch_image"""
-    url_defining = UrlFixing
-    ask_for_subreddit = None
-    ask_for_modifiers = None
-    ask_for_modifiers_specific = None
-    ask_for_imgur_options = None
-    valid_input = False
-    imgur_album_skip = False
-    imgur_res_min_h = 0
-    imgur_res_min_w = 0
-    imgur_chosen_url = None
-    
-    if fixed_url:
-        if fixed_url.split('/')[2] == 'reddit.com':
-            chosen_url = fixed_url
-        elif fixed_url.split('/')[2] == 'imgur.com' or fixed_url.split('/')[2] == 'api.imgur.com':
-            imgur_chosen_url = fixed_url
-        else:
-            print('Invalid url input.')
-            exit()
-    else:
-        while not ask_for_subreddit:
-            ask_for_subreddit = input('Which subreddit do you want to pull from? (e.g. r/pics) ').lower()
-            subreddit_url = url_defining.fix_subreddit_url(ask_for_subreddit)
-            if not len(subreddit_url.split('/')) == 6:
-                ask_for_subreddit = None
-    
-        while not ask_for_modifiers:
-            # Notice - you can type the final modifier directly
-            ask_for_modifiers = input('Do you want to pull from the frontpage, or modify the pull-request? (frontpage/modify) ').lower()
-            
-            if ask_for_modifiers == 'modify':
-                ask_for_modifiers_specific = input('What kind of posts do you want? (new/top/rising/controversial) ').lower()
-                if ask_for_modifiers_specific in ['new', 'rising', 'controversial']:
-                    ask_for_modifiers = ask_for_modifiers_specific
-                elif ask_for_modifiers_specific == 'top':
-                    ask_for_modifier_top = input('What kind of "top" modifier do you want to use? (hour/day/week/month/year/all) ').lower()
-                    if ask_for_modifier_top in ['hour', 'day', 'week', 'month', 'all']:
-                        ask_for_modifiers = ask_for_modifier_top
-                        
-            chosen_modifier = url_defining.pull_or_modify(ask_for_modifiers)
-            if not chosen_modifier:
-                ask_for_modifiers = None
-        chosen_url = subreddit_url + chosen_modifier
-
-    if verbose_bool:
-        while not ask_for_imgur_options:
-            if imgur_chosen_url:
-                ask_for_imgur_options = 'down'
-            else:
-                ask_for_imgur_options = input('If you hit imgur albums, do you want to skip them or download them? (skip/download) ')
-            
-            if ask_for_imgur_options == 'skip':
-                imgur_album_skip = True
-                valid_input = True
-            elif ask_for_imgur_options in ['download', 'down']:
-                imgur_album_skip = False
-                imgur_res = input('Do you want to pull all the imgur album images, or add a criteria? (all/criteria) ')
-                if imgur_res == 'all':
-                    valid_input = True
-                elif imgur_res in ['cri', 'criteria', 'res']:
-                    try:
-                        imgur_res_min_h = int(input('What is the minimum height of pictures that you want to download? '))
-                        imgur_res_min_w = int(input('What is the minimum width of pictures that you want to download? '))
-                        valid_input = True
-                    except ValueError:
-                        print('Not a number')
-                    
-            if not valid_input:
-                ask_for_imgur_options = None
-    
-    if imgur_chosen_url:
-        fetch_imgur_album(imgur_chosen_url, imgur_res_min_h, imgur_res_min_w)
-    else:
-        fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w)
+        elif args[0] == 'deviant save':
+            save_to = args[1]
+            print('Deviantart: Saved new image as "{0}", in folder "{1}"'.format(save_to.split('\\')[-1], save_to.split('\\')[-2]))
 
 def filename_sanitization(filename):
     """Removes invalid characters in the arguments passed to it. Used for folder- and filenames."""
@@ -240,7 +177,11 @@ def filename_sanitization(filename):
         return 'None'
     
 def fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w):
-    """Downloads images and saves them to a folder."""
+    """
+    Downloads images and saves them to a folder.
+    Runs fetch_imgur_album if url is an Imgur album
+    Runs fetch_deviantart if the image is hosted on DeviantArt
+    """
     url_defining = UrlFixing
     
     reddit_headers = {'User-Agent' : '{}'.format(user_User_agent)}
@@ -256,9 +197,8 @@ def fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w):
         while i < user_number_of_loops:
             allowed_type = True if reddit_data.get_filetype(i) in user_allowed_filetype else False
             allowed_domains = True if reddit_data.get_domain(i) in user_allowed_domains else False
-            
+
             if reddit_data.self_post(i):
-                print('self-post')
                 verbose_func('self_post')
             elif reddit_data.check_if_imgur_album(i):
                 if not imgur_album_skip:
@@ -266,6 +206,9 @@ def fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w):
                     fetch_imgur_album(imgur_url, imgur_res_min_h, imgur_res_min_w)
                 else:
                     verbose_func('imgur_album_skip')
+            elif reddit_data.check_if_deviantart(i):
+                print(reddit_data.get_full_url(i))
+                fetch_deviantart(reddit_data.get_full_url(i), folder, i)
             elif not allowed_type:
                 verbose_func('filetype')
             elif not allowed_domains:
@@ -274,7 +217,7 @@ def fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w):
                 save_to = '{0}\\{1} - {2}.{3}'.format(folder, i, reddit_data.link_title(i)[:40], reddit_data.get_filetype(i))
                 with urllib.request.urlopen(reddit_data.get_full_url(i)) as in_stream, open(save_to, 'wb') as out_file:
                     copyfileobj(in_stream, out_file)
-                verbose_func('image_save', save_to)
+                verbose_func('image save', save_to)
             i += 1
     except IndexError:
         verbose_func('index_error')
@@ -303,20 +246,115 @@ def fetch_imgur_album(imgur_url, min_h, min_w):
                                                                                                                imgur_data.images_count,
                                                                                                                imgur_data.description))
     imgur_i = 0
+    while imgur_i < imgur_data.images_count:
+        if min_h <= imgur_data.get_image_height(imgur_i) and min_w <= imgur_data.get_image_width(imgur_i):
+            imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder),imgur_i,
+                                                    imgur_data.get_image_link(imgur_i).split('/')[-1])
+            with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
+                copyfileobj(in_stream, out_file)
+            verbose_func('imgur_image_save', imgur_save_to)
+        else:
+            verbose_func('imgur_album_resolution', imgur_data.get_image_width(imgur_i), imgur_data.get_image_height(imgur_i))
+        imgur_i += 1
+    verbose_func('seperation_line')
+
+def fetch_deviantart(deviant_url, folder, number):
+    """Handles saving of images hosted on DeviantArt"""
+    url_defining = UrlFixing
+
+    deviant_api_url = 'http://backend.deviantart.com/oembed?url={0}'.format(deviant_url)
+    deviant_response = url_defining.pull_data(deviant_api_url, None)
+
     try:
-        while imgur_i < imgur_data.images_count:
-            if min_h <= imgur_data.get_image_height(imgur_i) and min_w <= imgur_data.get_image_width(imgur_i):
-                imgur_save_to = '{0}\\{1} - {2}'.format(imgur_data.get_folder(folder),imgur_i,
-                                                        imgur_data.get_image_link(imgur_i).split('/')[-1])
-                with urllib.request.urlopen(imgur_data.get_image_link(imgur_i)) as in_stream, open(imgur_save_to, 'wb') as out_file:
-                    copyfileobj(in_stream, out_file)
-                verbose_func('imgur_image_save', imgur_save_to)
+        deviant_final_url = deviant_response['url']
+        deviant_filetype = deviant_final_url[-3:]
+        deviant_title = deviant_response['title']
+    except KeyError:
+        deviant_final_url = deviant_response['fullsize_url']
+        deviant_filetype = deviant_final_url[-3:]
+        deviant_title = deviant_response['title']
+
+    save_to = '{0}\\{1} - {2}.{3}'.format(folder, number, deviant_title[:40], deviant_filetype)
+    with urllib.request.urlopen(deviant_final_url) as in_stream, open(save_to, 'wb') as out_file:
+        copyfileobj(in_stream, out_file)
+    verbose_func('deviant save', save_to)
+
+def main():
+    """Takes care of prompting the user for all needed info, then runs fetch_image"""
+    url_defining = UrlFixing
+    ask_for_subreddit = None
+    ask_for_modifiers = None
+    ask_for_modifiers_specific = None
+    ask_for_imgur_options = None
+    valid_input = False
+    imgur_album_skip = False
+    imgur_res_min_h = 0
+    imgur_res_min_w = 0
+    imgur_chosen_url = None
+
+    if fixed_url:
+        if fixed_url.split('/')[2] == 'reddit.com':
+            chosen_url = fixed_url
+        elif fixed_url.split('/')[2] == 'imgur.com' or fixed_url.split('/')[2] == 'api.imgur.com':
+            imgur_chosen_url = fixed_url
+        else:
+            print('Invalid url input.')
+            exit()
+    else:
+        while not ask_for_subreddit:
+            ask_for_subreddit = input('Which subreddit do you want to pull from? (e.g. r/pics) ').lower()
+            subreddit_url = url_defining.fix_subreddit_url(ask_for_subreddit)
+            if not len(subreddit_url.split('/')) == 6:
+                ask_for_subreddit = None
+
+        while not ask_for_modifiers:
+            # Notice - you can type the final modifier directly
+            ask_for_modifiers = input('Do you want to pull from the frontpage, or modify the pull-request? (frontpage/modify) ').lower()
+
+            if ask_for_modifiers == 'modify':
+                ask_for_modifiers_specific = input('What kind of posts do you want? (new/top/rising/controversial) ').lower()
+                if ask_for_modifiers_specific in ['new', 'rising', 'controversial']:
+                    ask_for_modifiers = ask_for_modifiers_specific
+                elif ask_for_modifiers_specific == 'top':
+                    ask_for_modifier_top = input('What kind of "top" modifier do you want to use? (hour/day/week/month/year/all) ').lower()
+                    if ask_for_modifier_top in ['hour', 'day', 'week', 'month', 'all']:
+                        ask_for_modifiers = ask_for_modifier_top
+
+            chosen_modifier = url_defining.pull_or_modify(ask_for_modifiers)
+            if not chosen_modifier:
+                ask_for_modifiers = None
+        chosen_url = subreddit_url + chosen_modifier
+
+    if verbose_bool:
+        while not ask_for_imgur_options:
+            if imgur_chosen_url:
+                ask_for_imgur_options = 'down'
             else:
-                verbose_func('imgur_album_resolution', imgur_data.get_image_width(imgur_i), imgur_data.get_image_height(imgur_i))
-            imgur_i += 1
-        verbose_func('seperation_line')
-    except KeyboardInterrupt:
-        exit()
-        
-        
+                ask_for_imgur_options = input('If you hit imgur albums, do you want to skip them or download them? (skip/download) ')
+
+            if ask_for_imgur_options == 'skip':
+                imgur_album_skip = True
+                valid_input = True
+            elif ask_for_imgur_options in ['download', 'down']:
+                imgur_album_skip = False
+                imgur_res = input('Do you want to pull all the imgur album images, or add a criteria? (all/criteria) ')
+                if imgur_res == 'all':
+                    valid_input = True
+                elif imgur_res in ['cri', 'criteria', 'res']:
+                    try:
+                        imgur_res_min_h = int(input('What is the minimum height of pictures that you want to download? '))
+                        imgur_res_min_w = int(input('What is the minimum width of pictures that you want to download? '))
+                        valid_input = True
+                    except ValueError:
+                        print('Not a number')
+
+            if not valid_input:
+                ask_for_imgur_options = None
+
+    if imgur_chosen_url:
+        fetch_imgur_album(imgur_chosen_url, imgur_res_min_h, imgur_res_min_w)
+    else:
+        fetch_image(chosen_url, imgur_album_skip, imgur_res_min_h, imgur_res_min_w)
+
+
 main()
