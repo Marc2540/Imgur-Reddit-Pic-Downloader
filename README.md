@@ -7,7 +7,7 @@ Imgur + Reddit picture downloader
 1. Asks for subreddit to pull images from.
 2. Asks if you want to pull from the frontpage, or modify the request (i.e. get top-alltime links).
 3. Asks what to do if it hits Imgur albums. (skip/only download files with a resolution larger than 'x')
-2. Loops through the data and downloads all .jpg, .png and .gif images hosted on imgur.com and minus.com
+2. Loops through the data and downloads all .jpg, .png and .gif images hosted on imgur.com, deviantart.com and minus.com
 3. All images are saved in a folder named YYYY-MM-DD in the current working directory.  
 
 ### Optional parameters:  
