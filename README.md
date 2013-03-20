@@ -23,3 +23,4 @@ python main.py -q or --quiet
 
 ### To do:  
 * ~~Add deviantArt support~~
+* Update standalone build to include v1.1 changes.
